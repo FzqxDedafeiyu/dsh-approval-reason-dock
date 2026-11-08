@@ -1,0 +1,71 @@
+{
+  "name": "dsh-approval-reason-dock",
+  "version": "0.1.0",
+  "description": "Adds an optional rejection reason to DeepSeek Harness approval prompts: the text is steered into the running turn before the rejection is answered.",
+  "type": "module",
+  "license": "MIT",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "README.zh.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "approval",
+    "steering",
+    "ui"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/issues"
+  },
+  "homepage": "https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock#readme",
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "scripts": {
+    "test": "node test/harness.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "devDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-session"
+      ]
+    }
+  }
+}

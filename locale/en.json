@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Approval Reason Dock",
+    "description": "Adds an optional rejection reason to approval prompts; the reason is sent into the running turn before the rejection is answered."
+  }
+}
