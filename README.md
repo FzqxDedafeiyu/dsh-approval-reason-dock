@@ -83,6 +83,11 @@ test/harness.mjs    sandbox tests
 .github/workflows/  CI
 ```
 
+## Maintenance
+
+Release, install/rollback, upgrade smoke tests and troubleshooting are documented in the
+[maintenance handbook](docs/MAINTENANCE.md) (Chinese, written for this deployment).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

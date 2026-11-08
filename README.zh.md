@@ -83,6 +83,10 @@ test/harness.mjs    沙箱测试
 .github/workflows/  CI
 ```
 
+## 维护
+
+发布流程、本机安装/回退、升级冒烟与排障见[交付与维护手册](docs/MAINTENANCE.md)。
+
 ## 许可证
 
 MIT，见 [LICENSE](LICENSE)。
