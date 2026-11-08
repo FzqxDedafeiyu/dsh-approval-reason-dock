@@ -2,4 +2,6 @@ node_modules/
 *.tgz
 coverage/
 .DS_Store
-Thumbs.db
+Thumbs.dbdocs/MAINTENANCE.private.md
+docs/MAINTENANCE.private.md
+

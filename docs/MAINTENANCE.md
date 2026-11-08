@@ -24,10 +24,10 @@ Harness 审批结果只有封闭枚举（`allowed-once / rejected / cancelled / 
 | GitHub 仓库 | https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock （公开，MIT） |
 | npm 包 | https://www.npmjs.com/package/dsh-approval-reason-dock （`0.1.0`，dist-tag `latest`） |
 | GitHub Release | https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/releases/tag/v0.1.0 |
-| 仓库工作副本 | `D:\日常\projects\dsh-approval-reason-dock` |
-| 本机已安装插件 | `D:\DSH\plugins\dsh-approval-reason-dock`（profile 通过 bundle 机制引用） |
-| 本机旧版备份 | `D:\DSH\plugins\dsh-approval-reason-dock.bak-20261108-224113`（旧 DOM 实现） |
-| 分析与原型产物 | `D:\日常\approval-analysis`（app.asar 解析脚本、原型、截图等） |
+| 仓库工作副本 | `<repo working copy>` |
+| 本机已安装插件 | `$DSH_HOME/plugins/<plugin-dir>`（profile 通过 bundle 机制引用） |
+| 本机旧版备份 | `<plugin-dir>.bak-<timestamp>`（旧 DOM 实现） |
+| 分析与原型产物 | `<analysis dir>`（app.asar 解析脚本、原型、截图等） |
 | 预览图 | 仓库 `docs/preview.png` |
 
 ## 三、仓库结构
@@ -78,7 +78,7 @@ test/harness.mjs        # 沙箱测试（manifest/打包/逻辑/SSR 渲染/槽�
 
 ```powershell
 # 工作副本
-cd D:\日常\projects\dsh-approval-reason-dock
+cd <repo working copy>
 
 # 安装测试依赖（react / react-dom 仅测试用）
 npm install
@@ -90,8 +90,8 @@ npm test                 # = node test/harness.mjs，当前 81/81
 npm run pack:check       # = npm pack --dry-run
 ```
 
-- 本机 `git` 是 **MinGit 便携版**：`C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Git.MinGit_Microsoft.Winget.Source_8wekyb3d8bbwe\cmd\git.exe`（未永久加入已运行进程的 PATH，命令里可临时前置）。
-- 本机 npm：`D:\Tools\npm-global\npm.cmd`（PowerShell 直接 `npm` 可能被执行策略拦 `npm.ps1`，用 `npm.cmd` 或 `cmd /c`）。
+- 本机 `git` 是 **MinGit 便携版**：`%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe`（未永久加入已运行进程的 PATH，命令里可临时前置）。
+- 本机 npm：`npm.cmd`（PowerShell 直接 `npm` 可能被执行策略拦 `npm.ps1`，用 `npm.cmd` 或 `cmd /c`）。
 - **改 `client.js` 后必须重启 DSH**：宿主会缓存已发布的 bundle body，刷新页面不够。
 - 测试环境里 pwsh 在 `workspace-write` 权限下会报 `ACL temp root must be outside the workspace`；发布/推送命令需用一次性 `danger-full-access` 审批执行。
 
@@ -99,10 +99,10 @@ npm run pack:check       # = npm pack --dry-run
 
 ### 6.1 npm（当前 2FA 政策下的正确姿势：staged publishing）
 
-npm 账号（`b53010260`）开了 2FA，**直接 `npm publish` 会被 403 拦**（需要 bypass-2FA token，该能力正在被废弃）。官方推荐流程：
+npm 账号（`<npm-user>`）开了 2FA，**直接 `npm publish` 会被 403 拦**（需要 bypass-2FA token，该能力正在被废弃）。官方推荐流程：
 
 ```powershell
-cd D:\日常\projects\dsh-approval-reason-dock
+cd <repo working copy>
 npm.cmd stage publish --access public        # 暂存，2FA 延后
 npm.cmd stage list                            # 拿 stage id；等状态从 validating → staged
 npm.cmd stage approve <stage-id>              # 触发网页 2FA（安全密钥）；或 --otp=<6位码>
@@ -115,13 +115,13 @@ npm.cmd stage approve <stage-id>              # 触发网页 2FA（安全密钥�
 ### 6.2 GitHub / Release
 
 ```powershell
-$git = 'C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Git.MinGit_Microsoft.Winget.Source_8wekyb3d8bbwe\cmd\git.exe'
-& $git -C D:\日常\projects\dsh-approval-reason-dock status
-& $git -C D:\日常\projects\dsh-approval-reason-dock add -A
-& $git -C D:\日常\projects\dsh-approval-reason-dock commit -m "feat: ..."
-& $git -C D:\日常\projects\dsh-approval-reason-dock push origin main
-& $git -C D:\日常\projects\dsh-approval-reason-dock tag -f v0.1.x <sha>
-& $git -C D:\日常\projects\dsh-approval-reason-dock push -f origin refs/tags/v0.1.x
+$git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
+& $git -C <repo working copy> status
+& $git -C <repo working copy> add -A
+& $git -C <repo working copy> commit -m "feat: ..."
+& $git -C <repo working copy> push origin main
+& $git -C <repo working copy> tag -f v0.1.x <sha>
+& $git -C <repo working copy> push -f origin refs/tags/v0.1.x
 ```
 
 - Release 用 GitHub API 维护（`github_api` 工具）：`POST /releases`（草稿）→ 校验后 `PATCH /releases/{id}` `{draft:false}` 发布；改 tag 后若 Release 变回 draft，重新 PATCH 一次即可。
@@ -141,17 +141,17 @@ $git = 'C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Git.MinGi
 
 ### 安装位置与引用关系
 
-- 插件源码：`D:\DSH\plugins\dsh-approval-reason-dock`
-- profile 依赖：`D:\DSH\profiles\desktop\package.json`
-  - `dependencies` 里 `"dsh-approval-reason-dock": "link:C:/Users/Administrator/.dsh/plugins/dsh-approval-reason-dock"`
+- 插件源码：`$DSH_HOME/plugins/<plugin-dir>`
+- profile 依赖：`$DSH_HOME/profiles/<profile>\package.json`
+  - `dependencies` 里 `"dsh-approval-reason-dock": "link:<DSH_HOME>/plugins/<plugin-dir>"`
   - `dsh.profile.bundles` 末尾包含 `"dsh-approval-reason-dock"`
-- node_modules：`D:\DSH\profiles\desktop\node_modules\dsh-approval-reason-dock` → 指向插件目录（symlink）
+- node_modules：`$DSH_HOME/profiles/<profile>\node_modules\dsh-approval-reason-dock` → 指向插件目录（symlink）
 - Loader 行：由插件自带 `cordis.patch.yml` 插入；**不要**再在 `profiles/desktop/cordis.patch.yml` 里手工插同一行（会重复 id）
 
 ### 升级本机已装版本
 
 1. 改完仓库文件、跑完 `npm test`；
-2. 把运行时文件复制到 `D:\DSH\plugins\dsh-approval-reason-dock`（index.js / client.js / cordis.patch.yml / package.json / locale / icon）；
+2. 把运行时文件复制到 `$DSH_HOME/plugins/<plugin-dir>`（index.js / client.js / cordis.patch.yml / package.json / locale / icon）；
 3. 重启 DSH；
 4. 触发一次审批冒烟。
 
@@ -159,7 +159,7 @@ $git = 'C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Git.MinGi
 
 - 删掉 `profiles/desktop/package.json` 里 `dsh.profile.bundles` 的 `dsh-approval-reason-dock`（以及依赖/symlink）→ 重启 DSH，即完全恢复内置审批卡；
 - 或整体恢复旧版目录备份 `dsh-approval-reason-dock.bak-20261108-224113`；
-- 配置改动前后可跑 `node D:\DSH\im\tools\dsh-guard.mjs snapshot/check`，出问题 `rollback --latest --go`。
+- 配置改动前后可跑 `node $DSH_HOME/im/tools\dsh-guard.mjs snapshot/check`，出问题 `rollback --latest --go`。
 
 ## 八、排障手册
 
@@ -177,9 +177,9 @@ $git = 'C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Git.MinGi
 
 ## 九、账号与密钥
 
-- npm 账号：`b53010260`（发布者，`_npmUser` 记录为 `liangwjc@sina.com`）
-- 本机 `.npmrc`（`C:\Users\Administrator\.npmrc`）保存 **stage-only granular token**；不要提交、不要外发
-- 曾经在聊天里贴出过一个 `npm_P5vP…` token → 后续调用返回 401（已失效）；如仍有残留，去 npm → Access Tokens 撤销
+- npm 账号：`<npm-user>`（发布者）
+- 本机用户级 `.npmrc` 保存 **stage-only granular token**；不要提交、不要外发
+- 曾有一个发布 token 在聊天中出现过（已失效）；如仍有残留，去 npm → Access Tokens 检查
 - GitHub：`gh` CLI 已登录 `FzqxDedafeiyu`（token scopes：repo/workflow/gist）；仓库 secret `NPM_TOKEN` **尚未配置**
 - 建议后续：给仓库配 `NPM_TOKEN`（stage 或 publish 权限）以启用 Actions 自动发版；长期可迁 npm Trusted Publishing
 
@@ -199,3 +199,4 @@ $git = 'C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\Git.MinGi
 - DSH 包清单类型：`@deepseek-ai/dsh-package-manifest`
 - 客户端模块系统：`@deepseek-ai/dsh-client-modules`
 - 插件市场索引格式：`@deepseek-ai/dsh-plugin-market-index`（若要上架发现页，需 format 1 索引）
+
