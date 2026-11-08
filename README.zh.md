@@ -1,8 +1,15 @@
 # dsh-approval-reason-dock
 
+[![CI](https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/actions/workflows/ci.yml/badge.svg)](https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 给 [DeepSeek Harness](https://github.com/deepseek-ai) Web 端加一层**审批拒绝理由**：审批卡出现时可以填一句理由，插件会先把理由作为 steering 用户消息送进当前对话，再把审批答成「拒绝」。这样模型下一步就能读到理由，而不是只收到一句"用户拒绝了工具 X"、只能靠猜。
 
 [English](README.md)
+
+## 预览
+
+![审批拒绝理由浮层叠加在内置审批卡上](https://raw.githubusercontent.com/FzqxDedafeiyu/dsh-approval-reason-dock/main/docs/preview.png)
 
 ## 为什么做这个
 

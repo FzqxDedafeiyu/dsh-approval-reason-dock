@@ -1,8 +1,15 @@
 # dsh-approval-reason-dock
 
+[![CI](https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/actions/workflows/ci.yml/badge.svg)](https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 An additive web-client plugin for [DeepSeek Harness](https://github.com/deepseek-ai) that lets you type an optional **rejection reason** on approval prompts. The reason is delivered into the running turn as a steering user message *before* the approval is answered as rejected, so the model reads it in its next step instead of guessing why the action was denied.
 
 [中文说明](README.zh.md)
+
+## Preview
+
+![Approval reason panel over the built-in approval card](https://raw.githubusercontent.com/FzqxDedafeiyu/dsh-approval-reason-dock/main/docs/preview.png)
 
 ## Why
 

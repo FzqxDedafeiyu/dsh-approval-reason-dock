@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-approval-reason-dock preview</title>
+<style>
+  :root {
+    --dsw-alias-bg-layer-1: #141414;
+    --dsw-alias-bg-layer-2: #1e1e1e;
+    --dsw-alias-border-l1: #2a2a2a;
+    --dsw-alias-border-l2: #3a3a3a;
+    --dsw-alias-label-primary: #e8e8e8;
+    --dsw-alias-label-secondary: #b9b9b9;
+    --dsw-alias-label-tertiary: #8a8a8a;
+    --dsw-alias-label-primary-foreground: #141414;
+    --dsw-alias-button-primary-fill: #f0f0f0;
+    --dsw-alias-state-warn-primary: #e0a45e;
+    --dsw-alias-state-warn-label: #e0a45e;
+    --dsw-alias-state-success-primary: #4ec9a0;
+    --dsw-alias-state-error-primary: #e08a84;
+    --dsw-specific-input-major: #10141a;
+    --dsw-radius-md: 9px;
+    --dsw-radius-xl: 14px;
+    --dsw-shadow-lv2: 0 8px 28px rgba(0, 0, 0, 0.35);
+    --dsw-font-base-16-font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    --dsw-font-base-16-font-size: 13px;
+    --dsw-font-base-16-line-height: 1.5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--dsw-alias-bg-layer-1);
+    color: var(--dsw-alias-label-primary);
+    font: var(--dsw-font-base-16-font-size)/var(--dsw-font-base-16-line-height) var(--dsw-font-base-16-font-family);
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 28px;
+  }
+  .stage { width: 100%; max-width: 980px; position: relative; min-height: 460px; }
+  .chat-line { color: var(--dsw-alias-label-secondary); font-size: 13px; margin-bottom: 10px; }
+  .chat-user { color: #dfe8f5; background: #24344d; padding: 9px 13px; border-radius: 10px; width: fit-content; margin-left: auto; font-size: 13px; }
+  .approval {
+    position: absolute; left: 0; right: 120px; bottom: 0;
+    border: 1px solid #b9803a; border-radius: var(--dsw-radius-xl);
+    background: var(--dsw-alias-bg-layer-2); opacity: .55; overflow: hidden;
+  }
+  .approval .strip { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #2a2115; color: var(--dsw-alias-state-warn-primary); font-size: 13px; }
+  .approval .body { padding: 14px 16px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .panel {
+    position: fixed; right: 48px; bottom: 210px; width: 360px; max-width: calc(100vw - 48px);
+    pointer-events: auto; padding: 12px 14px;
+    border-radius: var(--dsw-radius-xl);
+    border: 1px solid var(--dsw-alias-border-l2);
+    background: var(--dsw-alias-bg-layer-2);
+    color: var(--dsw-alias-label-primary);
+    box-shadow: var(--dsw-shadow-lv2);
+  }
+  .head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px; }
+  .head .title { color: var(--dsw-alias-label-primary); font-weight: 600; }
+  .head .tool { color: var(--dsw-alias-label-tertiary); font-weight: 400; }
+  .hint { margin-bottom: 8px; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+  textarea {
+    width: 100%; min-height: 64px; resize: vertical; padding: 8px 10px;
+    border-radius: var(--dsw-radius-md); border: 1px solid var(--dsw-alias-border-l2);
+    background: var(--dsw-specific-input-major); color: var(--dsw-alias-label-primary);
+    font: inherit; outline: none;
+  }
+  .actions { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+  button { border-radius: var(--dsw-radius-md); padding: 6px 12px; font: inherit; cursor: pointer; border: 1px solid transparent; }
+  .primary { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font-weight: 600; }
+  .ghost { background: transparent; color: var(--dsw-alias-label-secondary); border-color: var(--dsw-alias-border-l2); }
+  .notice { margin-top: 10px; color: var(--dsw-alias-state-success-primary); font-size: 12px; }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="chat-line">Approval prompts normally offer allow / reject only.</div>
+    <div class="chat-user">Let me approve that screenshot upload</div>
+    <div class="approval">
+      <div class="strip"><span class="dot"></span>等待审批</div>
+      <div class="body">Auto review 拒绝了此调用：…（内置审批卡保持原样，本插件只叠加浮层）</div>
+    </div>
+    <div class="panel">
+      <div class="head">
+        <span class="dot" style="flex:none; color: var(--dsw-alias-state-warn-primary)"></span>
+        <span class="title">审批待处理</span>
+        <span class="tool">工具：mcp__qwen-media__image_look</span>
+      </div>
+      <div class="hint">留一句拒绝理由（可选，会立即进入当前对话）</div>
+      <textarea>网络不稳，先别把截图发出去；等我确认后再做。</textarea>
+      <div class="actions">
+        <button class="primary">拒绝并说明</button>
+        <button class="ghost">只拒绝</button>
+      </div>
+      <div class="notice">已拒绝，理由已进入当前对话。</div>
+    </div>
+  </div>
+</body>
+</html>
