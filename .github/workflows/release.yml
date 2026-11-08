@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   publish:
-    name: publish to npm
+    name: publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,13 +22,15 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: npm ci
       - run: npm test
-      - name: Publish
-        if: ${{ secrets.NPM_TOKEN != '' }}
+      - name: Publish to npm
+        if: env.NPM_TOKEN != ''
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Explain the skipped publish
-        if: ${{ secrets.NPM_TOKEN == '' }}
+        if: env.NPM_TOKEN == ''
         run: |
           echo "NPM_TOKEN is not configured on this repository; skipping npm publish."
           echo "Add a repository secret named NPM_TOKEN to publish from tags."
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
