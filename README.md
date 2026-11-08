@@ -21,6 +21,7 @@ This plugin adds a small frame-wide panel on top of the host UI. It does **not**
 ## Behavior
 
 - While the active session has an answerable approval, a panel appears in the bottom-right corner (`shell.overlay` slot).
+- The panel follows the session shown in the main view: only that session's approval is offered, and approvals in other sessions stay quiet until you switch to them.
 - Type a reason and press **Reject with reason**:
   1. ``(approval rejection reason) <text>`` is sent into the running session as a steering user message (`remote.session.prompt` with `mode: "steer"`);
   2. if the turn no longer accepts steering, it is queued (`mode: "queue"`) instead;

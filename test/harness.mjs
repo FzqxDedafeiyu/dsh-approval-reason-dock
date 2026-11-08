@@ -110,7 +110,7 @@ const requireShim = (name) => {
 };
 const bundle = registered.factory(requireShim);
 check("bundle exports apply", typeof bundle.apply === "function");
-equal("bundle inject", bundle.inject, ["slots", "locale", "remote", "remote.session"]);
+equal("bundle inject", bundle.inject, ["slots", "locale", "remote", "remote.session", "uiSession"]);
 
 const internals = bundle.__internals;
 check("internals exported for the harness", internals !== undefined && typeof internals.deliverReason === "function");
@@ -127,11 +127,21 @@ equal("errorText combines code and message", internals.errorText({ ok: false, er
 equal("errorText tolerates a missing error", internals.errorText({ ok: false }), "unknown error");
 
 const approval = { kind: "approval", key: "approval:1", toolName: "pwsh", answerable: true, answer: async () => {} };
+const approvalB = { kind: "approval", key: "approval:3", toolName: "edit", answerable: true, answer: async () => {} };
 const question = { kind: "question", key: "question:1", answerable: true };
 const settled = { kind: "approval", key: "approval:2", answerable: false, answer: async () => {} };
-check("firstApproval ignores questions", internals.firstApproval(new Map([["s", { pendingInteraction: question }]])) === undefined);
-check("firstApproval ignores unanswerable approvals", internals.firstApproval(new Map([["s", { pendingInteraction: settled }]])) === undefined);
-equal("firstApproval returns the session and key", internals.firstApproval(new Map([["s", { pendingInteraction: approval }]]))?.sessionId, "s");
+check("firstApproval requires a current session", internals.firstApproval(new Map([["s", { pendingInteraction: approval }]]), undefined) === undefined);
+check("firstApproval ignores questions", internals.firstApproval(new Map([["s", { pendingInteraction: question }]]), "s") === undefined);
+check("firstApproval ignores unanswerable approvals", internals.firstApproval(new Map([["s", { pendingInteraction: settled }]]), "s") === undefined);
+equal("firstApproval returns the current session approval", internals.firstApproval(new Map([["s", { pendingInteraction: approval }]]), "s")?.sessionId, "s");
+check("firstApproval hides other sessions' approvals", internals.firstApproval(new Map([["s", { pendingInteraction: approval }]]), "other") === undefined);
+const twoSessions = new Map([
+  ["a", { pendingInteraction: approval }],
+  ["b", { pendingInteraction: approvalB }],
+]);
+equal("firstApproval follows session a", internals.firstApproval(twoSessions, "a")?.pending.toolName, "pwsh");
+equal("firstApproval follows session b", internals.firstApproval(twoSessions, "b")?.pending.toolName, "edit");
+check("firstApproval hides sessions without approvals", internals.firstApproval(twoSessions, "c") === undefined);
 
 /* ------------------------------------------------------- delivery flow */
 
@@ -219,28 +229,42 @@ console.log("render");
 const zhText = (key, vars) => String(internals.zh[key] ?? key).replaceAll(/\{([^}]+)\}/g, (_, name) => String(vars?.[name] ?? `{${name}}`));
 const enText = (key, vars) => String(internals.en[key] ?? key).replaceAll(/\{([^}]+)\}/g, (_, name) => String(vars?.[name] ?? `{${name}}`));
 
-function renderWith(t, snapshot) {
+function renderWith(t, snapshot, currentSessionId) {
+  const currentSession = {
+    getSnapshot: () => ({ key: currentSessionId }),
+    subscribe: () => () => {},
+  };
   return renderToStaticMarkup(
     React.createElement(internals.ApprovalReasonDock, {
       useSessionStatus: (selector) => selector(snapshot),
       t,
       remote: fakeRemote([{ ok: true }]),
+      currentSession,
     }),
   );
 }
 
-const emptyMarkup = renderWith(zhText, new Map());
+const emptyMarkup = renderWith(zhText, new Map(), "session-1");
 equal("no approval renders nothing", emptyMarkup, "");
 
 const pendingMap = new Map([["session-1", { pendingInteraction: approval }]]);
-const zhMarkup = renderWith(zhText, pendingMap);
+const otherMap = new Map([
+  ["session-1", { pendingInteraction: approval }],
+  ["session-2", { pendingInteraction: approvalB }],
+]);
+equal("other sessions' approvals render nothing", renderWith(zhText, pendingMap, "session-2"), "");
+equal("no current session renders nothing", renderWith(zhText, pendingMap, undefined), "");
+const zoomMarkup = renderWith(zhText, otherMap, "session-2");
+includes("follows the selected session (session-2 shows edit)", zoomMarkup, "工具：edit");
+check("selected session hides the other session's approval", !zoomMarkup.includes("工具：pwsh"));
+const zhMarkup = renderWith(zhText, pendingMap, "session-1");
 includes("zh markup shows the title", zhMarkup, "审批待处理");
 includes("zh markup shows the tool", zhMarkup, "工具：pwsh");
 includes("zh markup shows both buttons", zhMarkup, "拒绝并说明");
 includes("zh markup shows the plain reject", zhMarkup, "只拒绝");
 includes("zh markup shows the hint", zhMarkup, "留一句拒绝理由");
 
-const enMarkup = renderWith(enText, pendingMap);
+const enMarkup = renderWith(enText, pendingMap, "session-1");
 includes("en markup shows the title", enMarkup, "Approval pending");
 includes("en markup shows the primary action", enMarkup, "Reject with reason");
 
@@ -273,6 +297,12 @@ console.log("wiring");
       },
     },
     remote,
+    uiSession: {
+      current: {
+        getSnapshot: () => ({ key: "session-1" }),
+        subscribe: () => () => {},
+      },
+    },
   };
   bundle.apply(ctx);
   equal("dictionaries registered under the plugin namespace", Object.keys(dictionaries), ["approval-reason-dock"]);
@@ -282,6 +312,7 @@ console.log("wiring");
   equal("slot component", slot?.component, internals.ApprovalReasonDock);
   const injected = slot?.options?.inject?.();
   equal("slot inject exposes the remote service", injected?.remote, remote);
+  equal("slot inject exposes the current session source", injected?.currentSession, ctx.uiSession.current);
 }
 
 console.log("");

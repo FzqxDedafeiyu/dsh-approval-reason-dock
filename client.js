@@ -119,18 +119,40 @@ window.__ModuleLoader__.load({
 			return { mode: "failed", error: failures.join("; ") };
 		}
 
-		/** First answerable approval in a uiSession status snapshot. */
-		function firstApproval(snapshot) {
-			if (snapshot === undefined || snapshot === null || typeof snapshot.forEach !== "function") return undefined;
-			let found;
-			snapshot.forEach((status, sessionId) => {
-				if (found !== undefined) return;
-				const pending = status === undefined || status === null ? undefined : status.pendingInteraction;
-				if (pending !== undefined && pending !== null && pending.kind === "approval" && pending.answerable !== false) {
-					found = { sessionId, pending, key: pending.key === undefined ? sessionId : pending.key };
-				}
-			});
-			return found;
+		/**
+		 * First answerable approval for the session currently shown in the main
+		 * view. Approvals from other sessions stay quiet until the user switches
+		 * to them.
+		 * @param snapshot - uiSession.sessionStatus snapshot (sessionId -> status)
+		 * @param currentSessionId - session displayed in the main view, or undefined
+		 * @returns {{sessionId: string, pending: object, key: string} | undefined}
+		 */
+		function firstApproval(snapshot, currentSessionId) {
+			if (currentSessionId === undefined || currentSessionId === null) return undefined;
+			if (snapshot === undefined || snapshot === null || typeof snapshot.get !== "function") return undefined;
+			const status = snapshot.get(currentSessionId);
+			const pending = status === undefined || status === null ? undefined : status.pendingInteraction;
+			if (pending === undefined || pending === null) return undefined;
+			if (pending.kind !== "approval" || pending.answerable === false) return undefined;
+			return { sessionId: currentSessionId, pending, key: pending.key === undefined ? currentSessionId : pending.key };
+		}
+
+		/**
+		 * Subscribe to the main-view session binding and return its session id.
+		 * @param source - uiSession.current binding source (getSnapshot/subscribe)
+		 * @returns the current session id, or undefined when no session is shown
+		 */
+		function useCurrentSessionId(source) {
+			const subscribe = React.useCallback(
+				(listener) => (source === undefined || source === null ? () => {} : source.subscribe(listener)),
+				[source],
+			);
+			const read = React.useCallback(() => {
+				if (source === undefined || source === null) return undefined;
+				const binding = source.getSnapshot();
+				return binding === undefined || binding === null ? undefined : binding.key;
+			}, [source]);
+			return React.useSyncExternalStore(subscribe, read, read);
 		}
 
 		/**
@@ -229,14 +251,22 @@ window.__ModuleLoader__.load({
 			const useSessionStatus = props.useSessionStatus;
 			const t = props.t;
 			const remote = props.remote;
+			const currentSessionId = useCurrentSessionId(props.currentSession);
 
 			const snapshot = useSessionStatus((value) => value);
-			const approval = React.useMemo(() => firstApproval(snapshot), [snapshot]);
+			const approval = React.useMemo(() => firstApproval(snapshot, currentSessionId), [snapshot, currentSessionId]);
 			const seenKey = React.useRef(undefined);
 			const lastTarget = React.useRef(undefined);
 			const [draft, setDraft] = React.useState("");
 			const [busy, setBusy] = React.useState(false);
 			const [notice, setNotice] = React.useState(null);
+
+			React.useEffect(() => {
+				seenKey.current = undefined;
+				lastTarget.current = undefined;
+				setDraft("");
+				setNotice(null);
+			}, [currentSessionId]);
 
 			React.useEffect(() => {
 				if (approval === undefined) return;
@@ -357,7 +387,7 @@ window.__ModuleLoader__.load({
 						id: "approval-reason-dock",
 						order: 20,
 						locale: NS,
-						inject: () => ({ remote: ctx.remote }),
+						inject: () => ({ remote: ctx.remote, currentSession: ctx.uiSession.current }),
 					},
 					ApprovalReasonDock,
 				),
@@ -365,7 +395,7 @@ window.__ModuleLoader__.load({
 		}
 
 		exports.apply = apply;
-		exports.inject = ["slots", "locale", "remote", "remote.session"];
+		exports.inject = ["slots", "locale", "remote", "remote.session", "uiSession"];
 		/* Test-only surface: the sandbox harness drives these without a browser. */
 		exports.__internals = {
 			normalizeReason,

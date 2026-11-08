@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-09
+
+### Fixed
+
+- The panel now follows the session shown in the main view. It only offers that
+  session's approval, and switching sessions hides or moves the panel instead of
+  showing another session's approval; approvals in other sessions stay quiet
+  until you switch to them.
+
 ## [0.1.0] - 2026-11-08
 
 ### Added
