@@ -33,7 +33,14 @@ This plugin adds a small frame-wide panel on top of the host UI. It does **not**
 
 ## Install
 
-Requires DSH `0.2.1-rc.2` or a later `0.2.x` release (`engines.dsh`).
+Requires DSH `0.2.2-rc.1` or a later `0.2.x` release (see `engines.dsh`).
+
+Version match:
+
+| DSH | Plugin | Status |
+| --- | --- | --- |
+| `0.2.1-rc.2` | `0.1.0` | verified stable; `0.1.1` is not tested on this line |
+| `0.2.2-rc.1` | `0.1.1`+ | verified (all 0.1.1 real-machine tests ran here) |
 
 Preferred: install the bundle from the DSH UI (Plugin Manager → install bundle) using the npm package name or the GitHub spec:
 

@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   slot inject callback and never render.
 - Only the visible session's status/title are subscribed, so updates in other
   sessions no longer re-render the frame-wide panel.
+- Compatibility is now explicit: `engines.dsh` is `>=0.2.2-rc.1 <0.3.0` for
+  0.1.1 (verified there); DSH `0.2.1-rc.2` users should stay on `0.1.0`, which
+  was verified on that line.
 
 ## [0.1.0] - 2026-11-08
 

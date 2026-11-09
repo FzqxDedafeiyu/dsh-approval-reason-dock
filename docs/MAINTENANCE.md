@@ -1,6 +1,6 @@
 # 交付与维护手册（dsh-approval-reason-dock）
 
-> 版本：0.1.0 · 归档日期：2026-11-09 · 维护者：主人 / DSH 智能体
+> 版本：0.1.1 · 归档日期：2026-11-09 · 维护者：主人 / DSH 智能体
 > 这份文档记录**做了什么、放在哪、怎么改、怎么发、出问题怎么查**，供以后维护直接查阅。
 
 ## 一、项目概览
@@ -11,7 +11,7 @@
 | 定位 | DeepSeek Harness Web 客户端的**新增层**插件：审批卡出现时提供可选的「拒绝理由」，理由先作为 steering 用户消息进入当前对话，再提交 `rejected` |
 | 边界 | **不替换**内置审批卡、**不改**审批协议/审计事件、不动 `app.asar`；渲染失败时静默隐藏，内置卡照常工作（fail-soft） |
 | 技术栈 | 纯 JavaScript（无构建链）· `shell.overlay` 槽 · React · `--dsw-*` 主题 token · zh/en locale |
-| 兼容 | `engines.dsh: >=0.2.1-rc.2 <0.3.0`（开发/验证于 DSH 0.2.1-rc.2） |
+| 兼容 | `engines.dsh: >=0.2.2-rc.1 <0.3.0`；**版本匹配**：DSH `0.2.1-rc.2` ↔ 插件 `0.1.0`（已验证稳定），DSH `0.2.2-rc.1` ↔ 插件 `0.1.1+`（已验证） |
 
 ### 为什么要做
 
@@ -22,8 +22,8 @@ Harness 审批结果只有封闭枚举（`allowed-once / rejected / cancelled / 
 | 产物 | 位置 |
 |---|---|
 | GitHub 仓库 | https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock （公开，MIT） |
-| npm 包 | https://www.npmjs.com/package/dsh-approval-reason-dock （`0.1.0`，dist-tag `latest`） |
-| GitHub Release | https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/releases/tag/v0.1.0 |
+| npm 包 | https://www.npmjs.com/package/dsh-approval-reason-dock （`0.1.1`，dist-tag `latest`） |
+| GitHub Release | https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/releases/tag/v0.1.1 |
 | 仓库工作副本 | `<repo working copy>` |
 | 本机已安装插件 | `$DSH_HOME/plugins/<plugin-dir>`（profile 通过 bundle 机制引用） |
 | 本机旧版备份 | `<plugin-dir>.bak-<timestamp>`（旧 DOM 实现） |
@@ -55,22 +55,30 @@ test/harness.mjs        # 沙箱测试（manifest/打包/逻辑/SSR 渲染/槽�
 
 | 点 | 说明 |
 |---|---|
-| 注册 | `ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name:"shell.overlay", id:"approval-reason-dock", order:20, locale:NS, inject:()=>({remote:ctx.remote}) }, ApprovalReasonDock))` |
-| 状态 | 通过槽标准 props 的 `useSessionStatus((s)=>s)` 读取会话状态 Map，`firstApproval()` 找第一个 `kind==="approval" && answerable!==false` 的交互 |
+| 注册 | `ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name:"shell.overlay", id:"approval-reason-dock", order:20, locale:NS, inject:()=>({ remote: ctx.remote, uiSession: ctx.uiSession }) }, ApprovalReasonDock))` |
+| 当前会话 | `ctx.uiSession.current` 是 binding source：`getSnapshot().key` 即主视图正在显示的会话 id。0.2.1 与 0.2.2 的 `publishMain`/`watchMainRetention` 逐字节一致，切换会话可靠更新（已真机验证） |
+| 状态 | 窄订阅：`useSessionStatus((map) => map.get(currentSessionId))`，再用 `approvalFromStatus()` 取 `kind==="approval" && answerable!==false` 的交互；其他会话的状态变化不会重渲染面板 |
+| 会话名 | `useSessions((s) => sessionTitleOf(s, approval.sessionId))`，显式标题避免多会话认错 |
 | 作答 | `pending.answer("rejected")`（内置卡同一对象） |
 | 理由投递 | `remote.session.prompt({requestId, sessionId, content:[{type:"text", text: prefix+reason}], mode:"steer", clientTimeZone})`；失败自动重试 `mode:"queue"` |
+| 草稿 | `draftsByKey: Map<approvalKey, text>`：多会话/多审批切换保留各自文本，作答后清理 |
 | 文案 | `ctx.locale.register("approval-reason-dock", { zh, en })` + 槽 `locale: NS` 提供的 `t` 席位 |
-| 样式 | 全部 inline style + `var(--dsw-* , fallback)` 主题 token；不写 `document.body`、不依赖 primitives |
+| 样式 | 全部 inline style + `var(--dsw-* , fallback)` 主题 token；`position:fixed; right:24px; top:112px; width:344px`（右上角，避开内置审批卡与标题按钮）；不写 `document.body`、不依赖 primitives |
 | 生命周期 | 全部注册在 `ctx.effect` 内并返回清理；React 组件内状态随卸载清理 |
-| 测试钩子 | `exports.__internals` 暴露纯逻辑（normalizeReason / errorText / deliverReason / firstApproval / rejectApproval）供 harness 使用 |
+| 测试钩子 | `exports.__internals` 暴露纯逻辑（normalizeReason / errorText / deliverReason / firstApproval / approvalFromStatus / rejectApproval / sessionTitleOf / recallDraft / rememberDraft）供 harness 使用 |
 
 ### 依赖的 DSH 内部接口（升级风险点）
 
-- `shell.overlay` 槽（由 `@deepseek-ai/dsh-client-ui-layout` 提供）
-- `uiSession` 的 `sessionStatus`（`useSessionStatus` 槽 props）
+- `shell.overlay` 槽（由 `@deepseek-ai/dsh-client-ui-layout` 提供，`kind:"list"` / `scope:"root"`）
+- `uiSession` 的 `sessionStatus`（`useSessionStatus` 槽 props）与 `uiSession.current`（binding source）
 - `PendingApproval.answer()`（审批交互对象的公开方法）
-- `remote.session.prompt`（客户端 Remote 方法；**必须 inject `remote.session`**，只 inject `remote` 会调用失败——这是 0.1.0 修复过的 bug）
+- `remote.session.prompt`（客户端 Remote 方法）
 - `ctx.locale.register` / 槽 `locale` 席位
+
+**客户端 inject 两条硬规则**（0.1.1 踩坑后确认）：
+
+1. `package.json` 的 `dsh.client.inject` 是**客户端包名**（激活顺序），只放 `@deepseek-ai/dsh-client-*`；不要放 `dsh-api-*`（宿主 API 包）。
+2. 客户端模块的 `exports.inject` 是**服务名/点号路径**：访问 `ctx.remote.session` 必须同时声明 `"remote"` 和 `"remote.session"`；访问 `ctx.uiSession` 必须声明 `"uiSession"`。缺声明会在槽 inject 回调里抛 `cannot get property ... without inject`，面板静默不出现。
 
 **升级冒烟**：DSH 升级后触发一次真实审批，确认浮层出现、理由能送达、内置卡仍可正常允许/拒绝；若内部接口变更，面板应静默不出现而不是报错。
 
@@ -165,7 +173,11 @@ $git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
 
 | 症状 | 可能原因 | 处理 |
 |---|---|---|
-| 审批时右下角没有浮层 | 插件未加载 / 槽注册失败 / DSH 未重启 / `shell.overlay` 变更 | 看 DSH 插件列表是否有该插件；重启 DSH；若 DSH 升级导致接口变更，面板应静默隐藏，需更新插件 |
+| 审批时右上角没有浮层 | 插件未加载 / 槽注册失败 / DSH 未重启 / `shell.overlay` 变更 | 先开 DevTools Console（Ctrl+Shift+I）看红色报错；`plugin_manager list_plugins` 查宿主行是否 `fiberPhase:active`；再重启 DSH |
+| Console: `cannot get property "X" without inject` / `slot entry crashed in 'shell.overlay'` | `exports.inject` 少了服务名或点号路径（如 `remote.session`、`uiSession`） | 补进 `exports.inject`；改了结构性代码后**完整重启 DSH** |
+| 浮层看得见但点不动/输不进（僵死） | HMR 残留旧模块：新旧两个 overlay entry 并存，旧 entry 崩溃留下僵死 DOM | 完整重启 DSH（不要只刷新页面） |
+| 多会话切换后草稿被清空 | 0.1.1 之前草稿是单一状态 | 0.1.1 起按审批 key 保存（`draftsByKey`），切会话不再互相清空 |
+| 窄窗口浮层遮住右上角按钮 | 面板位置过高 | 0.1.1 起 `top:112px`、宽 344px；仍不适配可再调 `surface`/`pillStyle` |
 | 浮层出现但点「拒绝并说明」后理由没送达 | `remote.session` 服务未注入 / `prompt` 参数错误 / turn 已结束 | 确认 `client.js` 的 `exports.inject` 含 `remote.session`；失败时会自动降级 queue；查看 `console.error("[approval-reason-dock] ...")` |
 | npm publish 403「Two-factor authentication…required」 | 用了普通 token 直接发布 | 改走 `npm stage publish` + `stage approve`（见 §6.1） |
 | `npm stage approve` 报 EOTP 且 URL 显示 `***` | 非交互 shell | 用 `--require fake-tty.cjs` 伪装 TTY 让 npm 走 web-2FA；或保持 CLI 存活，把 auth URL 给主人浏览器确认 |
@@ -192,6 +204,7 @@ $git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
 | 2026-11-08 | 迁移 | 改为官方 bundle 机制（dsh.profile.bundles），修复 `remote.session` 注入 bug |
 | 2026-11-08 | 仓库化 | 重写为 `shell.overlay` + React + 主题 token + zh/en locale；harness 81/81 |
 | 2026-11-09 | 0.1.0 | GitHub 仓库 + CI + Release；npm 发布（staged publish + 网页 2FA approve） |
+| 2026-11-09 | 0.1.1 | 会话跟随（`uiSession.current`）、会话名、右上角位置、折叠/立即收起、按审批保存草稿、客户端激活修复（inject 服务名）、窄订阅；harness 104/104，DSH 0.2.2 真机多会话验证通过 |
 
 ## 十一、参考
 

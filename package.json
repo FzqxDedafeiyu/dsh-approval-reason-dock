@@ -41,7 +41,7 @@
   "homepage": "https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock#readme",
   "engines": {
     "node": ">=20",
-    "dsh": ">=0.2.1-rc.2 <0.3.0"
+    "dsh": ">=0.2.2-rc.1 <0.3.0"
   },
   "scripts": {
     "test": "node test/harness.mjs",
