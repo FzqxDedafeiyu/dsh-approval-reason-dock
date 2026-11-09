@@ -42,11 +42,23 @@ Version match:
 | `0.2.1-rc.2` | `0.1.0` | verified stable; `0.1.1` is not tested on this line |
 | `0.2.2-rc.1` | `0.1.1`+ | verified (all 0.1.1 real-machine tests ran here) |
 
+Install with the DSH CLI (npm package):
+
+```sh
+dsh plugin --profile web add dsh-approval-reason-dock
+```
+
 Preferred: install the bundle from the DSH UI (Plugin Manager → install bundle) using the npm package name or the GitHub spec:
 
 ```
 dsh-approval-reason-dock
 github:FzqxDedafeiyu/dsh-approval-reason-dock
+```
+
+Or from GitHub source with the CLI:
+
+```sh
+dsh plugin --profile web add github:FzqxDedafeiyu/dsh-approval-reason-dock
 ```
 
 Manual profile patch (if you manage the profile yourself): add the bundle to `dsh.profile.bundles` and let its patch insert the row:

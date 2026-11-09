@@ -42,11 +42,23 @@ Harness 的审批卡只有「允许一次 / 拒绝」两个动作，拒绝结果
 | `0.2.1-rc.2` | `0.1.0` | 已验证稳定；`0.1.1` 未在该版本线复测 |
 | `0.2.2-rc.1` | `0.1.1`+ | 已验证（0.1.1 的全部真机测试都跑在这个版本） |
 
+用 DSH CLI 安装（npm 包）：
+
+```sh
+dsh plugin --profile web add dsh-approval-reason-dock
+```
+
 推荐：在 DSH 的插件管理页用 npm 包名或 GitHub spec 安装 bundle：
 
 ```
 dsh-approval-reason-dock
 github:FzqxDedafeiyu/dsh-approval-reason-dock
+```
+
+或者从 GitHub 源码用 CLI 安装：
+
+```sh
+dsh plugin --profile web add github:FzqxDedafeiyu/dsh-approval-reason-dock
 ```
 
 手工管理 profile 的话：把 bundle 加入 `dsh.profile.bundles`，让它自带的 patch 插入行：
