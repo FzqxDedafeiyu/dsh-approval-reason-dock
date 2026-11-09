@@ -10,7 +10,7 @@
 
 ## 预览
 
-![审批拒绝理由浮层叠加在内置审批卡上](https://raw.githubusercontent.com/FzqxDedafeiyu/dsh-approval-reason-dock/main/docs/preview.png?v=0.1.1)
+![审批拒绝理由浮层叠加在内置审批卡上](https://raw.githubusercontent.com/FzqxDedafeiyu/dsh-approval-reason-dock/main/docs/preview-zh.png?v=0.1.1)
 
 ## 为什么做这个
 

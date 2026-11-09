@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>dsh-approval-reason-dock preview (0.1.1)</title>
+<style>
+  :root {
+    --bg: #141414;
+    --bg-2: #1e1e1e;
+    --border: #3a3a3a;
+    --text: #e8e8e8;
+    --text-2: #b9b9b9;
+    --text-3: #8a8a8a;
+    --warn: #e0a45e;
+    --primary-fill: #f0f0f0;
+    --primary-ink: #141414;
+    --input-bg: #10141a;
+    --radius-md: 9px;
+    --radius-xl: 14px;
+    --shadow: 0 8px 28px rgba(0,0,0,.35);
+    font-size: 13px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1000px; height: 600px; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.5 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  .window { position: relative; width: 1000px; height: 600px; }
+  .sidebar {
+    position: absolute; inset: 0 auto 0 0; width: 240px;
+    background: #101216; border-right: 1px solid #262a30;
+    padding: 14px 10px; color: var(--text-3); font-size: 13px;
+  }
+  .sidebar .section { padding: 4px 8px 10px; color: #6f7680; font-size: 12px; }
+  .sidebar .item { padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar .item.active { background: #23272e; color: var(--text); }
+  .main { position: absolute; left: 240px; right: 0; top: 0; bottom: 0; padding: 20px 26px; }
+  .main .line { color: var(--text-2); margin-bottom: 12px; }
+  .main .user { justify-self: end; width: fit-content; margin-left: auto; background: #24344d; color: #dfe8f5; padding: 9px 13px; border-radius: 10px; }
+  .builtin {
+    position: absolute; left: 266px; right: 40px; bottom: 24px;
+    border: 1px solid #6b4a22; border-radius: var(--radius-xl);
+    background: var(--bg-2); overflow: hidden; opacity: .55;
+  }
+  .builtin .strip { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #2a2115; color: var(--warn); }
+  .builtin .body { padding: 12px 16px 16px; color: var(--text-2); font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+  .panel {
+    position: absolute; right: 24px; top: 112px; width: 344px;
+    padding: 12px 14px; border-radius: var(--radius-xl);
+    border: 1px solid var(--border); background: var(--bg-2);
+    color: var(--text); box-shadow: var(--shadow);
+  }
+  .head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .head .dot { color: var(--warn); }
+  .head .title { font-weight: 600; flex: none; }
+  .head .tool { color: #9a9a9a; font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .head .collapse { margin-left: auto; padding: 0 4px; border: 0; background: transparent; color: var(--text-3); font: inherit; line-height: 1; cursor: pointer; }
+  .session { margin-bottom: 6px; color: var(--text-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hint { margin-bottom: 8px; color: var(--text-2); font-size: 12px; }
+  textarea {
+    width: 100%; min-height: 64px; resize: vertical; padding: 8px 10px;
+    border-radius: var(--radius-md); border: 1px solid var(--border);
+    background: var(--input-bg); color: var(--text); font: inherit; outline: none;
+  }
+  .actions { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+  button { border-radius: var(--radius-md); padding: 6px 12px; font: inherit; cursor: pointer; border: 1px solid transparent; }
+  .primary { background: var(--primary-fill); color: var(--primary-ink); font-weight: 600; }
+  .ghost { background: transparent; color: var(--text-2); border-color: var(--border); }
+  .pill-row { position: absolute; right: 24px; top: 356px; display: flex; align-items: center; gap: 10px; }
+  .pill-row .caption { color: var(--text-3); font-size: 12px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--bg-2);
+    color: var(--text-2); opacity: .82; box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  .pill .dot { color: var(--warn); }
+  .pill .tool { color: var(--text-3); font-size: 12px; }
+  .caption-bottom { position: absolute; left: 266px; bottom: 6px; color: #5f666f; font-size: 11px; }
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="sidebar">
+      <div class="section">会话</div>
+      <div class="item active">改造审批中文与拒绝理由</div>
+      <div class="item">简单测试请求</div>
+      <div class="item">另一个会话…</div>
+      <div class="item">代码审查</div>
+    </div>
+
+    <div class="main">
+      <div class="line">Approval prompts normally offer allow / reject only.</div>
+      <div class="line user">Let me approve that screenshot upload</div>
+      <div class="line">Waiting for the approval decision…</div>
+    </div>
+
+    <div class="builtin">
+      <div class="strip"><span class="dot"></span>等待审批</div>
+      <div class="body">内置审批卡保持原样（允许一次 / 拒绝）；本插件只叠加一个可选的拒绝理由浮层。</div>
+    </div>
+
+    <div class="panel">
+      <div class="head">
+        <span class="dot"></span>
+        <span class="title">审批待处理</span>
+        <span class="tool">工具：pwsh</span>
+        <button class="collapse" title="折叠">–</button>
+      </div>
+      <div class="session">会话：改造审批中文与拒绝理由</div>
+      <div class="hint">留一句拒绝理由（可选，会立即进入当前对话）</div>
+      <textarea>网络不稳，先别把截图发出去；等我确认后再做。</textarea>
+      <div class="actions">
+        <button class="primary">拒绝并说明</button>
+        <button class="ghost">只拒绝</button>
+      </div>
+    </div>
+
+    <div class="pill-row">
+      <span class="caption">折叠后：</span>
+      <span class="pill"><span class="dot"></span>待审核<span class="tool">pwsh</span></span>
+    </div>
+
+    <div class="caption-bottom">0.1.1 · 浮层跟随当前会话（右上角），草稿按审批分别保留</div>
+  </div>
+</body>
+</html>
