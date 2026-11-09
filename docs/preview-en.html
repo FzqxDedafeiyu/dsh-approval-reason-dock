@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>dsh-approval-reason-dock preview (0.1.1, en)</title>
+<style>
+  :root {
+    --bg: #141414; --bg-2: #1e1e1e; --border: #3a3a3a;
+    --text: #e8e8e8; --text-2: #b9b9b9; --text-3: #8a8a8a;
+    --warn: #e0a45e; --primary-fill: #f0f0f0; --primary-ink: #141414;
+    --input-bg: #10141a; --radius-md: 9px; --radius-xl: 14px;
+    --shadow: 0 8px 28px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1000px; height: 600px; overflow: hidden; }
+  body { background: var(--bg); color: var(--text); font: 13px/1.5 "Segoe UI", system-ui, sans-serif; }
+  .window { position: relative; width: 1000px; height: 600px; }
+  .sidebar { position: absolute; inset: 0 auto 0 0; width: 240px; background: #101216; border-right: 1px solid #262a30; padding: 14px 10px; color: var(--text-3); }
+  .sidebar .section { padding: 4px 8px 10px; color: #6f7680; font-size: 12px; }
+  .sidebar .item { padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar .item.active { background: #23272e; color: var(--text); }
+  .main { position: absolute; left: 240px; right: 0; top: 0; bottom: 0; padding: 20px 26px; }
+  .main .line { color: var(--text-2); margin-bottom: 12px; }
+  .main .user { width: fit-content; margin-left: auto; background: #24344d; color: #dfe8f5; padding: 9px 13px; border-radius: 10px; }
+  .builtin { position: absolute; left: 266px; right: 40px; bottom: 24px; border: 1px solid #6b4a22; border-radius: var(--radius-xl); background: var(--bg-2); overflow: hidden; opacity: .55; }
+  .builtin .strip { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #2a2115; color: var(--warn); }
+  .builtin .body { padding: 12px 16px 16px; color: var(--text-2); font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+  .panel { position: absolute; right: 24px; top: 112px; width: 344px; padding: 12px 14px; border-radius: var(--radius-xl); border: 1px solid var(--border); background: var(--bg-2); color: var(--text); box-shadow: var(--shadow); }
+  .head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .head .dot { color: var(--warn); }
+  .head .title { font-weight: 600; flex: none; }
+  .head .tool { color: #9a9a9a; font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .head .collapse { margin-left: auto; padding: 0 4px; border: 0; background: transparent; color: var(--text-3); font: inherit; line-height: 1; cursor: pointer; }
+  .session { margin-bottom: 6px; color: var(--text-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hint { margin-bottom: 8px; color: var(--text-2); font-size: 12px; }
+  textarea { width: 100%; min-height: 64px; resize: vertical; padding: 8px 10px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font: inherit; outline: none; }
+  .actions { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+  button { border-radius: var(--radius-md); padding: 6px 12px; font: inherit; cursor: pointer; border: 1px solid transparent; }
+  .primary { background: var(--primary-fill); color: var(--primary-ink); font-weight: 600; }
+  .ghost { background: transparent; color: var(--text-2); border-color: var(--border); }
+  .pill-row { position: absolute; right: 24px; top: 356px; display: flex; align-items: center; gap: 10px; }
+  .pill-row .caption { color: var(--text-3); font-size: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); opacity: .82; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .pill .dot { color: var(--warn); }
+  .pill .tool { color: var(--text-3); font-size: 12px; }
+  .caption-bottom { position: absolute; left: 266px; bottom: 6px; color: #5f666f; font-size: 11px; }
+</style>
+</head>
+<body>
+  <div class="window">
+    <div class="sidebar">
+      <div class="section">Sessions</div>
+      <div class="item active">Approval wording &amp; rejection reasons</div>
+      <div class="item">Simple test request</div>
+      <div class="item">Another session…</div>
+      <div class="item">Code review</div>
+    </div>
+
+    <div class="main">
+      <div class="line">Approval prompts normally offer allow / reject only.</div>
+      <div class="line user">Let me approve that screenshot upload</div>
+      <div class="line">Waiting for the approval decision…</div>
+    </div>
+
+    <div class="builtin">
+      <div class="strip"><span class="dot"></span>Waiting for approval</div>
+      <div class="body">The built-in approval card stays unchanged (Allow once / Reject); this plugin only adds an optional rejection-reason overlay.</div>
+    </div>
+
+    <div class="panel">
+      <div class="head">
+        <span class="dot"></span>
+        <span class="title">Approval pending</span>
+        <span class="tool">Tool: pwsh</span>
+        <button class="collapse" title="Collapse">–</button>
+      </div>
+      <div class="session">Session: Approval wording &amp; rejection reasons</div>
+      <div class="hint">Add a rejection reason (optional; it enters the running turn immediately)</div>
+      <textarea>The network is unreliable — do not send the screenshot yet; wait for my confirmation.</textarea>
+      <div class="actions">
+        <button class="primary">Reject with reason</button>
+        <button class="ghost">Reject</button>
+      </div>
+    </div>
+
+    <div class="pill-row">
+      <span class="caption">Collapsed:</span>
+      <span class="pill"><span class="dot"></span>Pending review<span class="tool">pwsh</span></span>
+    </div>
+
+    <div class="caption-bottom">0.1.1 · the panel follows the current session (top-right); drafts kept per approval</div>
+  </div>
+</body>
+</html>
