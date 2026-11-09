@@ -10,7 +10,7 @@ An additive web-client plugin for [DeepSeek Harness](https://github.com/deepseek
 
 ## Preview
 
-![Approval reason panel over the built-in approval card](https://raw.githubusercontent.com/FzqxDedafeiyu/dsh-approval-reason-dock/main/docs/preview.png)
+![Approval reason panel over the built-in approval card](https://raw.githubusercontent.com/FzqxDedafeiyu/dsh-approval-reason-dock/main/docs/preview.png?v=0.1.1)
 
 ## Why
 
