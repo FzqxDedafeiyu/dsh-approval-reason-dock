@@ -1,0 +1,6 @@
+# Keep local-only maintenance material out of `git archive` tarballs.
+# Note: GitHub's auto-generated source archives do NOT honour export-ignore;
+# the reliable fix is to keep such material out of release tags (see v0.1.2
+# plan) or ship the needed assets as Release assets.
+/probe/ export-ignore
+/scripts/ export-ignore

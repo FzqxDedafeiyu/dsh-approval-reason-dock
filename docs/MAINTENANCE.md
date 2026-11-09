@@ -1,6 +1,6 @@
 # 交付与维护手册（dsh-approval-reason-dock）
 
-> 版本：0.1.1 · 归档日期：2026-11-09 · 维护者：主人 / DSH 智能体
+> 版本：0.1.1 · 归档日期：2026-11-10 · 维护者：主人 / DSH 智能体
 > 这份文档记录**做了什么、放在哪、怎么改、怎么发、出问题怎么查**，供以后维护直接查阅。
 
 ## 一、项目概览
@@ -81,6 +81,15 @@ test/harness.mjs        # 沙箱测试（manifest/打包/逻辑/SSR 渲染/槽�
 1. `package.json` 的 `dsh.client.inject` 是**客户端包名**（激活顺序），只放 `@deepseek-ai/dsh-client-*`；不要放 `dsh-api-*`（宿主 API 包）。
 2. 客户端模块的 `exports.inject` 是**服务名/点号路径**：访问 `ctx.remote.session` 必须同时声明 `"remote"` 和 `"remote.session"`；访问 `ctx.uiSession` 必须声明 `"uiSession"`。缺声明会在槽 inject 回调里抛 `cannot get property ... without inject`，面板静默不出现。
 
+**两条独立故障链（别混为一谈）**：
+
+- **A. boot fatal**：`dsh.client.inject` 混入 `dsh-api-*` 宿主 API 包 → 客户端激活图异常 → DSH 0.2.2 web boot 被判 fatal（`N entries did not activate`，窗口「无法使用」）。2026-11-09 早间的多次崩溃即此。
+- **B. 面板不渲染**：`exports.inject` 缺服务名/点号路径（`uiSession`、`remote.session`）→ 槽 inject 回调抛错 → 只有该 slot entry 死亡，窗口正常但浮层永不出现。2026-11-09 22:47 的 probe 调试即此。
+
+**`immediately: true` 为什么保留**：已在 DSH 0.2.2 真机验证；前置客户端包已显式列在 `dsh.client.inject`，且 `apply()` 对 `slots` 缺失做了守卫，激活顺序不会把 UI 卡死。
+
+**`engines.dsh` 下限为什么是 0.2.2**：0.1.1 依赖客户端 `uiSession` 服务注入，该服务在 0.2.1 的 client runner 中**未验证存在**；因此 0.2.1 用户应显式安装 `dsh-approval-reason-dock@0.1.0`。
+
 **升级冒烟**：DSH 升级后触发一次真实审批，确认浮层出现、理由能送达、内置卡仍可正常允许/拒绝；若内部接口变更，面板应静默不出现而不是报错。
 
 ## 五、本地开发与测试
@@ -119,7 +128,7 @@ npm.cmd stage approve <stage-id>              # 触发网页 2FA（安全密钥�
 
 - 本机 `.npmrc` 里应配置一个 **stage-only granular token**（`//registry.npmjs.org/:_authToken=...`，权限 `Read and write (stage only)`）。
 - `stage approve` 若在非交互 shell 里报 `EOTP` 并打印 `https://www.npmjs.com/auth/cli/***`：需要保持 CLI 存活并在浏览器完成认证；本机曾用「伪造 TTY」（`--require fake-tty.cjs` 设 `process.stdin.isTTY=true`）让 npm 走 web-2FA 轮询，把真实 URL 交给主人在浏览器用安全密钥确认。
-- 之后 `npm.cmd view dsh-approval-reason-dock version` 应返回 `0.1.0`，`dist-tags` 的 `latest` 指向新版本。
+- 之后 `npm.cmd view dsh-approval-reason-dock version` 应返回当前发布版本（0.1.1），`dist-tags` 的 `latest` 指向新版本。
 
 ### 6.2 GitHub / Release
 

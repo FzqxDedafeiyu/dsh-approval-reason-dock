@@ -39,8 +39,20 @@ Version match:
 
 | DSH | Plugin | Status |
 | --- | --- | --- |
-| `0.2.1-rc.2` | `0.1.0` | verified stable; `0.1.1` is not tested on this line |
+| `0.2.1-rc.2` | `0.1.0` | verified stable; `0.1.1` is not supported on this line |
 | `0.2.2-rc.1` | `0.1.1`+ | verified (all 0.1.1 real-machine tests ran here) |
+
+On DSH `0.2.1-rc.2`, install the verified older line explicitly:
+
+```sh
+dsh plugin --profile web add dsh-approval-reason-dock@0.1.0
+```
+
+Why 0.1.1 does not claim 0.2.1: it needs the client-side `uiSession` service
+declared in `exports.inject`, and that service was not verified to exist in the
+0.2.1 client runner. The DSH plugin manager evaluates `engines.dsh` for
+compatibility, so 0.1.1 may be flagged as incompatible on 0.2.1; pinning
+`@0.1.0` avoids depending on that check.
 
 Install with the DSH CLI (npm package):
 

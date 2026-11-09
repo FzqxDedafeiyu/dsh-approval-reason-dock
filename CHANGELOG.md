@@ -26,11 +26,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   starts expanded for every new approval.
 - Rejection closes the panel immediately on success. A failed reason delivery
   still keeps a dismissible error notice.
-- Client activation fixes: `dsh.client.inject` now lists only real client
-  packages (no host API packages), and `exports.inject` declares the client
-  services the bundle actually touches, including the dotted `remote.session`
-  and `uiSession` paths. Missing declarations made the panel throw inside the
-  slot inject callback and never render.
+- Client activation, two independent failures fixed:
+  - `dsh.client.inject` now lists only real client packages (no host API
+    packages). The old list mixed transport/API layers into the client
+    activation graph; on DSH 0.2.2 that left UI entries waiting and the loader
+    treated it as fatal (`N entries did not activate`, boot dialog). This was
+    the 2026-11-09 web-boot crash.
+  - `exports.inject` now declares the dotted client services the bundle reads
+    (`remote.session`, `uiSession`). A missing declaration throws inside the
+    slot inject callback (`cannot get property ... without inject`), the slot
+    entry dies, and the panel silently never renders. This was the separate
+    "plugin installed but nothing appears" failure found with the probe build.
+- Kept `dsh.client.immediately: true`: verified on DSH 0.2.2, and the
+  prerequisites are now explicit in `dsh.client.inject` while `apply()` guards
+  for a missing slots service, so activation order cannot strand the UI.
 - Only the visible session's status/title are subscribed, so updates in other
   sessions no longer re-render the frame-wide panel.
 - Compatibility is now explicit: `engines.dsh` is `>=0.2.2-rc.1 <0.3.0` for

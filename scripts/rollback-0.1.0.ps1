@@ -1,9 +1,11 @@
 # Roll back dsh-approval-reason-dock to the known-good 0.1.0 build.
 #
-# Why: the 0.1.1 session-tracking experiment crashed the DSH web boot on
-# 0.2.2. This script restores the published 0.1.0 files, keeps a backup of the
-# current state, and (unless -NoEnable) re-adds the bundle to the profile so
-# the panel works again after a restart.
+# Why: a shelved session-tracking experiment (never published; it was being
+# prepared as a 0.1.1 build) crashed the DSH web boot on 0.2.2. The published
+# 0.1.1 uses uiSession.current instead and passed real-machine tests. This
+# script restores the published 0.1.0 files, keeps a backup of the current
+# state, and (unless -NoEnable) re-adds the bundle to the profile so the panel
+# works again after a restart.
 #
 # Write rules (AGENTS.md section 10):
 #   - never use Set-Content -Encoding UTF8 (PowerShell 5.1 writes a BOM and
