@@ -229,20 +229,39 @@ console.log("render");
 const zhText = (key, vars) => String(internals.zh[key] ?? key).replaceAll(/\{([^}]+)\}/g, (_, name) => String(vars?.[name] ?? `{${name}}`));
 const enText = (key, vars) => String(internals.en[key] ?? key).replaceAll(/\{([^}]+)\}/g, (_, name) => String(vars?.[name] ?? `{${name}}`));
 
-function renderWith(t, snapshot, currentSessionId) {
-  const currentSession = {
-    getSnapshot: () => ({ key: currentSessionId }),
-    subscribe: () => () => {},
+function renderWith(t, snapshot, currentSessionId, titles = undefined) {
+  const uiSession = {
+    current: {
+      getSnapshot: () => ({ key: currentSessionId }),
+      subscribe: () => () => {},
+    },
   };
+  const byId = {};
+  for (const [id, title] of Object.entries(titles ?? {})) byId[id] = { id, title };
+  const sessionsSnapshot = { byId };
   return renderToStaticMarkup(
     React.createElement(internals.ApprovalReasonDock, {
       useSessionStatus: (selector) => selector(snapshot),
+      useSessions: (selector) => selector(sessionsSnapshot),
       t,
       remote: fakeRemote([{ ok: true }]),
-      currentSession,
+      uiSession,
     }),
   );
 }
+
+equal("sessionTitleOf reads the title", internals.sessionTitleOf({ byId: { s: { title: "T" } } }, "s"), "T");
+check("sessionTitleOf tolerates missing snapshots", internals.sessionTitleOf(undefined, "s") === undefined);
+equal("approvalFromStatus returns the approval", internals.approvalFromStatus({ pendingInteraction: approval }, "s")?.key, "approval:1");
+check("approvalFromStatus ignores questions", internals.approvalFromStatus({ pendingInteraction: question }, "s") === undefined);
+check("approvalFromStatus without session id", internals.approvalFromStatus({ pendingInteraction: approval }, undefined) === undefined);
+internals.rememberDraft("approval:a", "甲");
+internals.rememberDraft("approval:b", "乙");
+equal("drafts are kept per approval key (a)", internals.recallDraft("approval:a"), "甲");
+equal("drafts are kept per approval key (b)", internals.recallDraft("approval:b"), "乙");
+internals.rememberDraft("approval:a", "");
+check("clearing one draft keeps the other", internals.recallDraft("approval:b") === "乙");
+check("cleared draft is empty", internals.recallDraft("approval:a") === "");
 
 const emptyMarkup = renderWith(zhText, new Map(), "session-1");
 equal("no approval renders nothing", emptyMarkup, "");
@@ -263,17 +282,22 @@ includes("zh markup shows the tool", zhMarkup, "工具：pwsh");
 includes("zh markup shows both buttons", zhMarkup, "拒绝并说明");
 includes("zh markup shows the plain reject", zhMarkup, "只拒绝");
 includes("zh markup shows the hint", zhMarkup, "留一句拒绝理由");
+includes("zh markup offers a collapse control", zhMarkup, "折叠");
+
+const titledMarkup = renderWith(zhText, pendingMap, "session-1", { "session-1": "改造审批中文与拒绝理由" });
+includes("zh markup shows the session title", titledMarkup, "会话：改造审批中文与拒绝理由");
 
 const enMarkup = renderWith(enText, pendingMap, "session-1");
 includes("en markup shows the title", enMarkup, "Approval pending");
 includes("en markup shows the primary action", enMarkup, "Reject with reason");
+includes("en markup offers a collapse control", enMarkup, "Collapse");
 
 /* --------------------------------------------------------------- wiring */
 
 console.log("wiring");
 {
   const dictionaries = {};
-  let slot;
+  const registrations = [];
   const disposers = [];
   const remote = fakeRemote([{ ok: true }]);
   const ctx = {
@@ -292,7 +316,7 @@ console.log("wiring");
         install();
       },
       register(options, component) {
-        slot = { options, component };
+        registrations.push({ options, component });
         return () => {};
       },
     },
@@ -306,13 +330,15 @@ console.log("wiring");
   };
   bundle.apply(ctx);
   equal("dictionaries registered under the plugin namespace", Object.keys(dictionaries), ["approval-reason-dock"]);
-  equal("registered slot", slot?.options?.name, "shell.overlay");
-  equal("registered slot id", slot?.options?.id, "approval-reason-dock");
-  equal("slot locale namespace", slot?.options?.locale, "approval-reason-dock");
-  equal("slot component", slot?.component, internals.ApprovalReasonDock);
-  const injected = slot?.options?.inject?.();
-  equal("slot inject exposes the remote service", injected?.remote, remote);
-  equal("slot inject exposes the current session source", injected?.currentSession, ctx.uiSession.current);
+  equal("one slot registered", registrations.length, 1);
+  const overlay = registrations.find((entry) => entry.options?.name === "shell.overlay");
+  equal("registered overlay slot", overlay?.options?.name, "shell.overlay");
+  equal("registered overlay id", overlay?.options?.id, "approval-reason-dock");
+  equal("overlay locale namespace", overlay?.options?.locale, "approval-reason-dock");
+  equal("overlay component", overlay?.component, internals.ApprovalReasonDock);
+  const injected = overlay?.options?.inject?.();
+  equal("overlay inject exposes the remote service", injected?.remote, remote);
+  equal("overlay inject exposes the uiSession service", injected?.uiSession, ctx.uiSession);
 }
 
 console.log("");

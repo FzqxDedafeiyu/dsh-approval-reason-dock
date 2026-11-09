@@ -20,13 +20,15 @@ This plugin adds a small frame-wide panel on top of the host UI. It does **not**
 
 ## Behavior
 
-- While the active session has an answerable approval, a panel appears in the bottom-right corner (`shell.overlay` slot).
-- The panel follows the session shown in the main view: only that session's approval is offered, and approvals in other sessions stay quiet until you switch to them.
+- While the active session has an answerable approval, a panel appears in the top-right corner (`shell.overlay` slot).
+- The panel follows the session shown in the main view: only that session's approval is offered, and approvals in other sessions stay quiet until you switch to them. The panel header shows the session title.
+- The panel starts expanded and can be collapsed into a semi-transparent “Pending review” pill so it does not cover the conversation; clicking the pill expands it again. Each new approval starts expanded.
+- Reason drafts are kept per approval, so switching between several sessions with pending approvals does not wipe the text typed for the other one.
 - Type a reason and press **Reject with reason**:
   1. ``(approval rejection reason) <text>`` is sent into the running session as a steering user message (`remote.session.prompt` with `mode: "steer"`);
   2. if the turn no longer accepts steering, it is queued (`mode: "queue"`) instead;
   3. the approval is then answered as `rejected`.
-- The panel reports the outcome, including the error code when delivery fails; a success notice hides itself, a failure notice stays until dismissed.
+- Rejection closes the panel immediately. Only a failed reason delivery keeps a dismissible error notice with the error code.
 - **Reject** answers without a reason, same as the built-in button.
 
 ## Install

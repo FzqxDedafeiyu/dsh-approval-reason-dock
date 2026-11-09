@@ -9,7 +9,6 @@ window.__ModuleLoader__.load({
 
 		const NS = "approval-reason-dock";
 		const MAX_REASON_CHARS = 500;
-		const SUCCESS_HIDE_MS = 8000;
 
 		/* ------------------------------------------------------------ copy */
 
@@ -20,6 +19,9 @@ window.__ModuleLoader__.load({
 			send: "拒绝并说明",
 			plain: "只拒绝",
 			close: "关闭",
+			collapse: "折叠",
+			expand: "展开",
+			pendingBadge: "待审核",
 			sending: "正在把理由送进当前对话…",
 			deliveredSteer: "已拒绝，理由已进入当前对话。",
 			deliveredQueue: "已拒绝，理由已排队，下一轮会看到。",
@@ -28,6 +30,7 @@ window.__ModuleLoader__.load({
 			handled: "已拒绝（未附理由）。",
 			handledTitle: "审批已处理",
 			tool: "工具：{tool}",
+			session: "会话：{title}",
 			reasonPrefix: "（审批拒绝理由）",
 			ariaInput: "审批拒绝理由（可选）",
 			ariaPanel: "审批拒绝理由浮层",
@@ -40,6 +43,9 @@ window.__ModuleLoader__.load({
 			send: "Reject with reason",
 			plain: "Reject",
 			close: "Close",
+			collapse: "Collapse",
+			expand: "Expand",
+			pendingBadge: "Pending review",
 			sending: "Sending the reason into the running turn…",
 			deliveredSteer: "Rejected; the reason entered the running turn.",
 			deliveredQueue: "Rejected; the reason is queued for the next turn.",
@@ -48,6 +54,7 @@ window.__ModuleLoader__.load({
 			handled: "Rejected (no reason).",
 			handledTitle: "Approval handled",
 			tool: "Tool: {tool}",
+			session: "Session: {title}",
 			reasonPrefix: "(approval rejection reason) ",
 			ariaInput: "Approval rejection reason (optional)",
 			ariaPanel: "Approval rejection reason panel",
@@ -138,21 +145,71 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * Subscribe to the main-view session binding and return its session id.
-		 * @param source - uiSession.current binding source (getSnapshot/subscribe)
-		 * @returns the current session id, or undefined when no session is shown
+		 * Subscribe to the main-view session binding exposed by `uiSession`.
+		 * `ctx.uiSession.current` is a binding source: `getSnapshot()` returns the
+		 * binding whose `key` is the displayed session id. That binding is kept by
+		 * the host (publishMain / watchMainRetention are byte-identical on 0.2.1
+		 * and 0.2.2), so it follows session switches.
+		 * @param source - uiSession.current binding source, or undefined
+		 * @returns {string | undefined} displayed session id
 		 */
 		function useCurrentSessionId(source) {
 			const subscribe = React.useCallback(
-				(listener) => (source === undefined || source === null ? () => {} : source.subscribe(listener)),
+				(listener) =>
+					source === undefined || source === null || typeof source.subscribe !== "function" ? () => {} : source.subscribe(listener),
 				[source],
 			);
 			const read = React.useCallback(() => {
-				if (source === undefined || source === null) return undefined;
+				if (source === undefined || source === null || typeof source.getSnapshot !== "function") return undefined;
 				const binding = source.getSnapshot();
-				return binding === undefined || binding === null ? undefined : binding.key;
+				if (binding === undefined || binding === null) return undefined;
+				return binding.key;
 			}, [source]);
 			return React.useSyncExternalStore(subscribe, read, read);
+		}
+
+		/**
+		 * Answerable approval for one session status, or undefined.
+		 * Prefer the narrow selector form: callers subscribe to
+		 * `status.get(currentSessionId)` so unrelated sessions do not re-render
+		 * the panel.
+		 * @param status - uiSession.sessionStatus entry for one session
+		 * @param sessionId - that session's id
+		 * @returns {{sessionId: string, pending: object, key: string} | undefined}
+		 */
+		function approvalFromStatus(status, sessionId) {
+			if (sessionId === undefined || sessionId === null) return undefined;
+			const pending = status === undefined || status === null ? undefined : status.pendingInteraction;
+			if (pending === undefined || pending === null) return undefined;
+			if (pending.kind !== "approval" || pending.answerable === false) return undefined;
+			return { sessionId, pending, key: pending.key === undefined ? sessionId : pending.key };
+		}
+
+		/** Session title from a sessions snapshot, when available. */
+		function sessionTitleOf(snapshot, sessionId) {
+			const byId = snapshot === undefined || snapshot === null ? undefined : snapshot.byId;
+			const info = byId === undefined || byId === null ? undefined : byId[sessionId];
+			const title = info === undefined || info === null ? undefined : info.title;
+			return typeof title === "string" && title !== "" ? title : undefined;
+		}
+
+		/**
+		 * Drafts keyed by approval key: two sessions can both have a pending
+		 * approval, so switching back and forth must not wipe the other one's
+		 * text. Cleared when the approval is answered.
+		 * @type {Map<string, string>}
+		 */
+		const draftsByKey = new Map();
+
+		function recallDraft(key) {
+			if (key === undefined) return "";
+			return draftsByKey.get(key) ?? "";
+		}
+
+		function rememberDraft(key, text) {
+			if (key === undefined) return;
+			if (text === "") draftsByKey.delete(key);
+			else draftsByKey.set(key, text);
 		}
 
 		/**
@@ -179,8 +236,8 @@ window.__ModuleLoader__.load({
 		const surface = {
 			position: "fixed",
 			right: 24,
-			bottom: 160,
-			width: 360,
+			top: 112,
+			width: 344,
 			maxWidth: "calc(100vw - 48px)",
 			boxSizing: "border-box",
 			pointerEvents: "auto",
@@ -200,6 +257,14 @@ window.__ModuleLoader__.load({
 		const titleStyle = { flex: "none", color: "var(--dsw-alias-label-primary, #e8e8e8)", fontWeight: 600 };
 		const toolStyle = { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--dsw-alias-label-tertiary, #9a9a9a)", fontWeight: 400 };
 		const hintStyle = { marginBottom: 8, color: "var(--dsw-alias-label-secondary, #b9b9b9)", fontSize: 12 };
+		const sessionStyle = {
+			marginBottom: 6,
+			color: "var(--dsw-alias-label-tertiary, #9a9a9a)",
+			fontSize: 12,
+			overflow: "hidden",
+			textOverflow: "ellipsis",
+			whiteSpace: "nowrap",
+		};
 		const inputStyle = {
 			width: "100%",
 			minHeight: 64,
@@ -238,6 +303,45 @@ window.__ModuleLoader__.load({
 			warn: { color: "var(--dsw-alias-state-warn-label, #e0a45e)" },
 			error: { color: "var(--dsw-alias-state-error-primary, #e08a84)" },
 		};
+		const collapseButton = {
+			flex: "none",
+			marginLeft: "auto",
+			padding: "0 4px",
+			border: "none",
+			background: "transparent",
+			color: "var(--dsw-alias-label-tertiary, #8a8a8a)",
+			font: "inherit",
+			lineHeight: 1,
+			cursor: "pointer",
+		};
+		const pillStyle = {
+			position: "fixed",
+			right: 24,
+			top: 112,
+			pointerEvents: "auto",
+			display: "flex",
+			alignItems: "center",
+			gap: 6,
+			padding: "6px 12px",
+			boxSizing: "border-box",
+			borderRadius: "999px",
+			border: "1px solid var(--dsw-alias-border-l2, #3a3a3a)",
+			background: "var(--dsw-alias-bg-layer-2, #1e1e1e)",
+			color: "var(--dsw-alias-label-secondary, #b9b9b9)",
+			opacity: 0.82,
+			boxShadow: "var(--dsw-shadow-lv1, 0 2px 8px rgba(0, 0, 0, 0.25))",
+			font: "inherit",
+			fontSize: "var(--dsw-font-base-16-font-size, 13px)",
+			cursor: "pointer",
+		};
+		const pillToolStyle = {
+			maxWidth: 160,
+			overflow: "hidden",
+			textOverflow: "ellipsis",
+			whiteSpace: "nowrap",
+			color: "var(--dsw-alias-label-tertiary, #8a8a8a)",
+			fontSize: 12,
+		};
 
 		/* -------------------------------------------------------- component */
 
@@ -249,22 +353,35 @@ window.__ModuleLoader__.load({
 		 */
 		function ApprovalReasonDock(props) {
 			const useSessionStatus = props.useSessionStatus;
+			const useSessions = props.useSessions;
 			const t = props.t;
 			const remote = props.remote;
-			const currentSessionId = useCurrentSessionId(props.currentSession);
-
-			const snapshot = useSessionStatus((value) => value);
-			const approval = React.useMemo(() => firstApproval(snapshot, currentSessionId), [snapshot, currentSessionId]);
+			const uiSession = props.uiSession;
+			// uiSession is the service; `.current` is the binding source for the
+			// session shown in the main view.
+			const currentSessionSource = uiSession === undefined || uiSession === null ? undefined : uiSession.current;
+			const currentSessionId = useCurrentSessionId(currentSessionSource);
+			// Narrow subscriptions: only the visible session's status/title can
+			// change what this panel renders. With many concurrent approvals this
+			// keeps re-renders tied to the visible session instead of every update.
+			const status = useSessionStatus((value) =>
+				value === undefined || value === null || currentSessionId === undefined ? undefined : value.get(currentSessionId),
+			);
+			const approval = React.useMemo(() => approvalFromStatus(status, currentSessionId), [status, currentSessionId]);
+			const useSessionsMaybe = typeof useSessions === "function" ? useSessions : () => undefined;
+			const sessionTitle = useSessionsMaybe((value) => (approval === undefined ? undefined : sessionTitleOf(value, approval.sessionId)));
 			const seenKey = React.useRef(undefined);
 			const lastTarget = React.useRef(undefined);
 			const [draft, setDraft] = React.useState("");
 			const [busy, setBusy] = React.useState(false);
 			const [notice, setNotice] = React.useState(null);
+			const [collapsed, setCollapsed] = React.useState(false);
 
 			React.useEffect(() => {
-				seenKey.current = undefined;
+				// Switching sessions resets transient notices and the stale answer
+				// target, but keeps the typed draft: returning to the same pending
+				// approval should restore the panel with its text intact.
 				lastTarget.current = undefined;
-				setDraft("");
 				setNotice(null);
 			}, [currentSessionId]);
 
@@ -273,15 +390,10 @@ window.__ModuleLoader__.load({
 				lastTarget.current = approval;
 				if (seenKey.current === approval.key) return;
 				seenKey.current = approval.key;
-				setDraft("");
+				setDraft(recallDraft(approval.key));
 				setNotice(null);
+				setCollapsed(false);
 			}, [approval]);
-
-			React.useEffect(() => {
-				if (notice === null || notice.kind !== "ok") return undefined;
-				const timer = setTimeout(() => setNotice(null), SUCCESS_HIDE_MS);
-				return () => clearTimeout(timer);
-			}, [notice]);
 
 			const dismiss = React.useCallback(() => setNotice(null), []);
 
@@ -292,23 +404,23 @@ window.__ModuleLoader__.load({
 					if (target === undefined) return;
 					setBusy(true);
 					const reason = withReason ? normalizeReason(draft) : "";
-					if (reason !== "") setNotice({ kind: "warn", text: t("sending") });
 					const outcome = await rejectApproval(target, remote, t("reasonPrefix"), reason);
 					setBusy(false);
 					lastTarget.current = undefined;
-					if (!outcome.answered) {
-						setNotice({ kind: "warn", text: t("settled") });
-						return;
-					}
+					rememberDraft(target.key, "");
 					setDraft("");
-					if (reason === "") {
-						setNotice({ kind: "ok", text: t("handled") });
+					// Success (with or without a reason) closes the panel immediately;
+					// only a failed reason delivery keeps a dismissible error notice.
+					if (outcome.answered !== true) {
+						setNotice(null);
 						return;
 					}
-					const delivery = outcome.delivery;
-					if (delivery.mode === "steer") setNotice({ kind: "ok", text: t("deliveredSteer") });
-					else if (delivery.mode === "queue") setNotice({ kind: "warn", text: t("deliveredQueue") });
-					else setNotice({ kind: "error", text: t("deliveryFailed", { error: delivery.error }) });
+					if (outcome.delivery !== undefined && outcome.delivery.mode === "failed") {
+						setNotice({ kind: "error", text: t("deliveryFailed", { error: outcome.delivery.error }) });
+						return;
+					}
+					setCollapsed(false);
+					setNotice(null);
 				},
 				[approval, busy, draft, remote, t],
 			);
@@ -322,6 +434,23 @@ window.__ModuleLoader__.load({
 				);
 			}
 
+			const toolName = typeof approval.pending.toolName === "string" ? approval.pending.toolName : "";
+			if (collapsed) {
+				return h(
+					"button",
+					{
+						type: "button",
+						style: pillStyle,
+						title: t("expand"),
+						"aria-label": t("expand"),
+						onClick: () => setCollapsed(false),
+					},
+					h("span", { style: { ...dotStyle, flex: "none" } }),
+					h("span", null, t("pendingBadge")),
+					toolName !== "" ? h("span", { style: pillToolStyle }, toolName) : null,
+				);
+			}
+
 			return h(
 				"div",
 				{ style: surface, role: "dialog", "aria-label": t("ariaPanel") },
@@ -330,18 +459,32 @@ window.__ModuleLoader__.load({
 					{ style: headRow },
 					h("span", { style: dotStyle, "aria-hidden": true }),
 					h("span", { style: titleStyle }, t("title")),
-					typeof approval.pending.toolName === "string" && approval.pending.toolName !== ""
-						? h("span", { style: toolStyle, title: approval.pending.toolName }, t("tool", { tool: approval.pending.toolName }))
-						: null,
+					toolName !== "" ? h("span", { style: toolStyle, title: toolName }, t("tool", { tool: toolName })) : null,
+					h(
+						"button",
+						{
+							type: "button",
+							style: collapseButton,
+							title: t("collapse"),
+							"aria-label": t("collapse"),
+							onClick: () => setCollapsed(true),
+						},
+						"–",
+					),
 				),
-				h("div", { style: hintStyle }, t("hint")),
+				sessionTitle === undefined ? null : h("div", { style: sessionStyle }, t("session", { title: sessionTitle })),
+				h("div", { style: hintStyle }, busy ? t("sending") : t("hint")),
 				h("textarea", {
 					style: inputStyle,
 					value: draft,
 					disabled: busy,
 					placeholder: t("placeholder"),
 					"aria-label": t("ariaInput"),
-					onChange: (event) => setDraft(event.target.value),
+					onChange: (event) => {
+						const next = event.target.value;
+						setDraft(next);
+						rememberDraft(approval.key, next);
+					},
 					onKeyDown: (event) => {
 						if (event.key === "Enter" && event.shiftKey !== true) {
 							event.preventDefault();
@@ -387,7 +530,7 @@ window.__ModuleLoader__.load({
 						id: "approval-reason-dock",
 						order: 20,
 						locale: NS,
-						inject: () => ({ remote: ctx.remote, currentSession: ctx.uiSession.current }),
+						inject: () => ({ remote: ctx.remote, uiSession: ctx.uiSession }),
 					},
 					ApprovalReasonDock,
 				),
@@ -395,6 +538,9 @@ window.__ModuleLoader__.load({
 		}
 
 		exports.apply = apply;
+		// Client SERVICE names, not package names. Cordis matches dotted paths:
+		// "remote" grants ctx.remote, "remote.session" grants ctx.remote.session
+		// (prompt lives there), and "uiSession" grants ctx.uiSession.
 		exports.inject = ["slots", "locale", "remote", "remote.session", "uiSession"];
 		/* Test-only surface: the sandbox harness drives these without a browser. */
 		exports.__internals = {
@@ -402,7 +548,11 @@ window.__ModuleLoader__.load({
 			errorText,
 			deliverReason,
 			firstApproval,
+			approvalFromStatus,
 			rejectApproval,
+			sessionTitleOf,
+			recallDraft,
+			rememberDraft,
 			zh,
 			en,
 			ApprovalReasonDock,
