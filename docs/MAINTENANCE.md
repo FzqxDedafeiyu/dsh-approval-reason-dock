@@ -28,7 +28,7 @@ Harness 审批结果只有封闭枚举（`allowed-once / rejected / cancelled / 
 | 本机已安装插件 | `$DSH_HOME/plugins/<plugin-dir>`（profile 通过 bundle 机制引用） |
 | 本机旧版备份 | `<plugin-dir>.bak-<timestamp>`（旧 DOM 实现） |
 | 分析与原型产物 | `<analysis dir>`（app.asar 解析脚本、原型、截图等） |
-| 预览图 | 仓库 `docs/preview.png` |
+| 预览图 | 仓库 `docs/preview.png`（英文，默认/npm 用）+ `docs/preview-zh.png`（中文），源文件 `preview.html` / `preview-zh.html` |
 
 ## 三、仓库结构
 
@@ -43,7 +43,8 @@ icon.svg                # 原创图标（<256 KiB，包内路径）
 README.md / README.zh.md# 双语说明（含 badges、预览、安装、兼容性）
 CHANGELOG.md            # Keep a Changelog 格式
 LICENSE                 # MIT
-docs/preview.html/.png  # README 预览图的源文件与渲染结果
+docs/preview.html/.png        # 英文 README 预览图（默认，npm 页用）
+docs/preview-zh.html/.png     # 中文 README 预览图
 test/harness.mjs        # 沙箱测试（manifest/打包/逻辑/SSR 渲染/槽注册）
 .github/workflows/ci.yml       # Node 20/22/24 跑 npm ci + npm test + npm pack --dry-run
 .github/workflows/release.yml  # tag 触发；有 NPM_TOKEN 时 npm publish，否则跳过并说明
