@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Documented the plugin's core positioning: **non-invasive by design**. README
+  (EN/ZH) gained a dedicated section, `package.json` description and the GitHub
+  About text were updated — client-only bundle (no host half, routes or
+  `tools/*` hooks), the built-in approval card / approval protocol / audit
+  events / sandbox policy stay untouched, fail-soft when the panel cannot
+  render, and subagent approvals are left entirely to DSH (auto-rejected there).
+  Version unchanged; documentation-only.
+
 ## [0.1.2] - 2026-11-10
 
 ### Changed
