@@ -1,6 +1,6 @@
 # 交付与维护手册（dsh-approval-reason-dock）
 
-> 版本：0.1.1 · 归档日期：2026-11-10 · 维护者：主人 / DSH 智能体
+> 版本：0.1.2 · 归档日期：2026-11-10 · 维护者：主人 / DSH 智能体
 > 这份文档记录**做了什么、放在哪、怎么改、怎么发、出问题怎么查**，供以后维护直接查阅。
 
 ## 一、项目概览
@@ -215,6 +215,7 @@ $git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
 | 2026-11-08 | 仓库化 | 重写为 `shell.overlay` + React + 主题 token + zh/en locale；harness 81/81 |
 | 2026-11-09 | 0.1.0 | GitHub 仓库 + CI + Release；npm 发布（staged publish + 网页 2FA approve） |
 | 2026-11-09 | 0.1.1 | 会话跟随（`uiSession.current`）、会话名、右上角位置、折叠/立即收起、按审批保存草稿、客户端激活修复（inject 服务名）、窄订阅；harness 104/104，DSH 0.2.2 真机多会话验证通过 |
+| 2026-11-10 | 0.1.2 | docs/市场素材同步版（无运行时代码变更）：tag 与 main 对齐、收录徽章、0.2.1 显式回退安装命令、中英文预览图与 screenshots.json 进入 tag；probe/scripts 移出发布分支 |
 
 ## 十一、参考
 

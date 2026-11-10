@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-10
+
+### Changed
+
+- Documentation / market-sync release, no runtime code changes: the tagged
+  release now carries the dsh-plugin.org listing badge, the explicit
+  `dsh-approval-reason-dock@0.1.0` fallback install for DSH 0.2.1, the split
+  English/Chinese preview images and `screenshots.json`, so the tag matches
+  `main` again after the 0.1.1 publish.
+- Repo hygiene: the local probe build and the rollback script moved out of the
+  release branch; `.gitattributes` marks such local-only tooling `export-ignore`
+  for local archives. (GitHub source archives ignore that attribute; keeping the
+  files off the release branch is the actual fix.)
+- `engines.dsh` is unchanged (`>=0.2.2-rc.1 <0.3.0`); DSH 0.2.1 users stay on
+  plugin `0.1.0`.
+
 ## [0.1.1] - 2026-11-09
 
 ### Fixed
