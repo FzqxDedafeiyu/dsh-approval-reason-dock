@@ -1,7 +1,7 @@
 {
   "name": "dsh-approval-reason-dock",
   "version": "0.1.2",
-  "description": "Adds an optional rejection reason to DeepSeek Harness approval prompts: the text is steered into the running turn before the rejection is answered.",
+  "description": "Adds an optional rejection reason to DSH approval prompts via a non-invasive client overlay; the built-in approval card and DSH's security architecture stay untouched.",
   "type": "module",
   "license": "MIT",
   "main": "index.js",

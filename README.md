@@ -32,6 +32,16 @@ This plugin adds a small frame-wide panel on top of the host UI. It does **not**
 - Rejection closes the panel immediately. Only a failed reason delivery keeps a dismissible error notice with the error code.
 - **Reject** answers without a reason, same as the built-in button.
 
+## Non-invasive by design
+
+This is the plugin's core selling point: it **adds a layer; it does not change DSH's security architecture**.
+
+- **Client-only bundle.** No host half, no HTTP routes, no `tools/*` hooks — nothing of this plugin runs inside the DSH host process.
+- **The built-in approval card is never replaced or edited.** The approval protocol, audit events, sandbox policy and permission checks stay exactly as shipped. The plugin only reads pending-approval metadata, calls the same `answer()` the built-in card calls, and delivers the reason through the normal session prompt path.
+- **Fail-soft.** If the panel cannot render or crashes, approvals keep working through the built-in card with native behavior.
+- **Subagent sessions are left alone.** DSH disables approval prompts there and auto-rejects escalation; the plugin never claims those interactions and renders nothing.
+- **Human-readable trail.** The reason is an ordinary steering user message, so the transcript records what was rejected and why — useful when a human reviews or debugs a session later.
+
 ## Install
 
 Requires DSH `0.2.2-rc.1` or a later `0.2.x` release (see `engines.dsh`).
