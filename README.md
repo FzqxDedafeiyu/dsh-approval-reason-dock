@@ -55,6 +55,11 @@ declared in `exports.inject`, and that service was not verified to exist in the
 compatibility, so 0.1.1 may be flagged as incompatible on 0.2.1; pinning
 `@0.1.0` avoids depending on that check.
 
+`0.1.2` is a documentation/market-sync release: runtime behavior is identical
+to `0.1.1`, but the tagged release now carries the market materials
+(dsh-plugin.org listing badge, CLI install command, split English/Chinese
+preview images and `screenshots.json`).
+
 Install with the DSH CLI (npm package):
 
 ```sh

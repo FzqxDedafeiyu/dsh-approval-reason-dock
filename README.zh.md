@@ -51,6 +51,8 @@ dsh plugin --profile web add dsh-approval-reason-dock@0.1.0
 
 0.1.1 不声明支持 0.2.1 的原因：它需要客户端侧 `uiSession` 服务注入（`exports.inject`），而该服务在 0.2.1 的客户端 runner 中是否存在**未验证**。DSH 插件管理器会按 `engines.dsh` 做兼容性评估，0.1.1 在 0.2.1 上可能被标记为不兼容；固定安装 `@0.1.0` 可以不依赖那次校验。
 
+`0.1.2` 是文档/市场素材同步版：运行时行为与 `0.1.1` 完全一致，但 tagged release 现在包含市场素材（dsh-plugin.org 收录徽章、CLI 安装命令、中英文预览图与 `screenshots.json`）。
+
 用 DSH CLI 安装（npm 包）：
 
 ```sh

@@ -11,7 +11,7 @@
 | 定位 | DeepSeek Harness Web 客户端的**新增层**插件：审批卡出现时提供可选的「拒绝理由」，理由先作为 steering 用户消息进入当前对话，再提交 `rejected` |
 | 边界 | **不替换**内置审批卡、**不改**审批协议/审计事件、不动 `app.asar`；渲染失败时静默隐藏，内置卡照常工作（fail-soft） |
 | 技术栈 | 纯 JavaScript（无构建链）· `shell.overlay` 槽 · React · `--dsw-*` 主题 token · zh/en locale |
-| 兼容 | `engines.dsh: >=0.2.2-rc.1 <0.3.0`；**版本匹配**：DSH `0.2.1-rc.2` ↔ 插件 `0.1.0`（已验证稳定），DSH `0.2.2-rc.1` ↔ 插件 `0.1.1+`（已验证） |
+| 兼容 | `engines.dsh: >=0.2.2-rc.1 <0.3.0`；**版本匹配**：DSH `0.2.1-rc.2` ↔ 插件 `0.1.0`（已验证稳定），DSH `0.2.2-rc.1` ↔ 插件 `0.1.1` / `0.1.2`（已验证） |
 
 ### 为什么要做
 
@@ -22,8 +22,8 @@ Harness 审批结果只有封闭枚举（`allowed-once / rejected / cancelled / 
 | 产物 | 位置 |
 |---|---|
 | GitHub 仓库 | https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock （公开，MIT） |
-| npm 包 | https://www.npmjs.com/package/dsh-approval-reason-dock （`0.1.1`，dist-tag `latest`） |
-| GitHub Release | https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/releases/tag/v0.1.1 |
+| npm 包 | https://www.npmjs.com/package/dsh-approval-reason-dock （`0.1.2`，dist-tag `latest`） |
+| GitHub Release | https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/releases/tag/v0.1.2 |
 | 仓库工作副本 | `<repo working copy>` |
 | 本机已安装插件 | `$DSH_HOME/plugins/<plugin-dir>`（profile 通过 bundle 机制引用） |
 | 本机旧版备份 | `<plugin-dir>.bak-<timestamp>`（旧 DOM 实现） |
@@ -128,7 +128,7 @@ npm.cmd stage approve <stage-id>              # 触发网页 2FA（安全密钥�
 
 - 本机 `.npmrc` 里应配置一个 **stage-only granular token**（`//registry.npmjs.org/:_authToken=...`，权限 `Read and write (stage only)`）。
 - `stage approve` 若在非交互 shell 里报 `EOTP` 并打印 `https://www.npmjs.com/auth/cli/***`：需要保持 CLI 存活并在浏览器完成认证；本机曾用「伪造 TTY」（`--require fake-tty.cjs` 设 `process.stdin.isTTY=true`）让 npm 走 web-2FA 轮询，把真实 URL 交给主人在浏览器用安全密钥确认。
-- 之后 `npm.cmd view dsh-approval-reason-dock version` 应返回当前发布版本（0.1.1），`dist-tags` 的 `latest` 指向新版本。
+- 之后 `npm.cmd view dsh-approval-reason-dock version` 应返回当前发布版本（0.1.2），`dist-tags` 的 `latest` 指向新版本。
 
 ### 6.2 GitHub / Release
 
