@@ -37,6 +37,22 @@
 （审批同意说明）只改 docs/ 下的文件，不要动 client.js。
 ```
 
+## 2.1 允许二次确认（2026-11-12 追加）
+
+点击「允许一次」或「允许并说明」后**不立即放行**，先在面板内弹出二次确认（自制视图，不用浏览器原生 `confirm()`，保持主题与可访问性一致）：
+
+- 标题：`确认允许这次执行？`
+- 正文（要点）：
+  1. 允许后**会立即执行该工具调用**，本插件只负责把补充说明送给模型，**不会改变本次授权范围**；
+  2. 如果你只是想「**部分同意**」或附条件放行，请点「**拒绝并说明**」——DSH 的审批结果只有允许/拒绝，没有「有条件允许」，条件只能通过拒绝理由让模型按条件重做；
+  3. 可展示工具名（及命令详情，如实现上方便）。
+- 按钮：「确认允许」（主/危险色）与「取消」。
+- 取消 → 回到输入态，保留草稿，审批**未回答**。
+- 二次确认期间：禁止重复提交；`Esc` = 取消确认（不拒绝、不放行）。
+- **拒绝路径不弹二次确认**（保持现状；拒绝本身还有理由输入这一层确认）。
+- 说明投递失败 → 回到面板显示错误（审批未回答），可重试；确认态可保留以便重试。
+- 交互防误触：确认态下 `Enter` 不再直接触发放行，必须显式点「确认允许」。
+
 ## 3. 技术方案
 
 仍是**纯客户端、零宿主**：复用现有 `remote.session.prompt` 通道。
@@ -51,14 +67,16 @@
 
 `client.js`：
 
-1. i18n `zh` / `en`：新增 `allowWithNote`、`allowPlain`、`rejectWithNote`、`rejectPlain`、`allowPrefix`、`reasonHint` 文案（面板标题/占位符可选调整）。
+1. i18n `zh` / `en`：新增 `allowWithNote`、`allowPlain`、`rejectWithNote`、`rejectPlain`、`allowPrefix`、`reasonHint` 文案（面板标题/占位符可选调整）；二次确认文案 `confirmTitle`、`confirmBody`、`confirmAllow`、`cancel`、`partialAgreementHint`（「部分同意请点拒绝」）。
 2. `deliverReason(remote, sessionId, prefix, reason)`：保持通用（已是 prefix 参数化），只新增「允许」用的 prefix。
 3. `rejectApproval(target, remote, prefix, reason)`：泛化为
    `answerApproval(target, remote, prefix, reason, outcome)`，新增
    `allowApproval(target, remote, prefix, reason)` → `answerWithNote('allowed-once', …)`。
 4. `ApprovalReasonDock` 组件：
+   - 增加视图状态机：`view: 'input' | 'confirm-allow'`，以及 `pendingAction: 'allow' | 'allow-with-note' | 'reject'`；
    - 现有 `settle('rejected')` 泛化为 `settle(outcome, withNote)`；
    - 按钮区改为：主按钮「允许（并说明）」+ 次按钮「拒绝（并说明）」，文案随输入框是否为空切换；
+   - 点允许 → 进入 `confirm-allow` 视图（显示风险说明与「部分同意请点拒绝」提示），点「确认允许」才真正执行；「取消」回到 `input`；
    - 成功路径：允许/拒绝都立即收起浮层；失败保留错误提示；
    - 注意 `pending.answer('allowed-once')` 是否与内置卡一致（已由 `answer()` 同一对象保证）。
 5. `exports.__internals` 增加 `allowApproval` 供 harness 使用。
@@ -68,6 +86,11 @@
 - 允许+无说明 → 只 answer，无 prompt 调用；
 - 允许+说明 → prompt 先于 answer，prefix 正确，outcome 为 `allowed-once`；
 - 允许+说明投递失败 → 不 answer、保留待处理；
+- **点允许必须先进入二次确认（confirm-allow），不得直接发请求/answer**；
+- **取消二次确认 → 无 prompt、无 answer、草稿保留、审批仍待处理**；
+- **确认允许 → 才走正常允许路径（带/不带说明）**；
+- **确认态下重复点击只提交一次**；
+- **拒绝路径不经过二次确认**（回归）；
 - 拒绝路径回归（原有断言全部保留）；
 - 草稿在允许/拒绝后都被清理；
 - 多审批/多会话草稿隔离不变。
@@ -96,6 +119,10 @@
 
 ## 7. 验收清单（真机）
 
+- [ ] 点「允许」先弹二次确认，文案含风险说明与「部分同意请点拒绝」提示；
+- [ ] 二次确认「取消」→ 审批未回答、回到面板、草稿保留；
+- [ ] 二次确认「确认允许」→ 按带/不带说明正常放行；
+- [ ] 拒绝路径不弹二次确认、行为不回归；
 - [ ] 空输入 → 允许一次 = 原生行为（不新增消息）；
 - [ ] 空输入 → 拒绝 = 原生行为；
 - [ ] 允许并说明 → 会话记录出现「（审批同意说明）…」用户消息，工具正常执行；
