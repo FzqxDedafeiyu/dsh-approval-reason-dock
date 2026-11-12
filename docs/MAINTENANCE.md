@@ -67,6 +67,7 @@ test/harness.mjs        # 沙箱测试（manifest/打包/逻辑/SSR 渲染/槽�
 | 按钮文案 | 随草稿切换：空输入 `allowPlain` / `rejectPlain`（原生、不发消息）；非空 `allowWithNote` / `rejectWithNote`；旧键 `send` / `plain` 已删除 |
 | 失败阻塞 | 说明投递 `mode === "failed"` → 不 answer、回 input 视图、保留草稿、`notice = deliveryFailed(error)`；审批已被别处处理（answered false 且无 failed delivery）→ `notice=null` 并清草稿 |
 | 键盘 | input 视图：textarea `Enter`（无 Shift）= 拒绝并说明（安全方向）；confirm 视图：`globalThis.addEventListener` 捕获 `Escape` = 取消（preventDefault），`Enter` = preventDefault 且不动作；view 变化时清理监听，存在性守卫 |
+| 说明到达时机（真机） | 说明消息先于审批结果写入事件流（`prompt` seq < `answer` seq），但模型侧在**本步骤工具结果之后**才读到（steering 语义）：说明不阻止本次已批准调用，用于约束后续步骤 |
 | 草稿 | `draftsByKey: Map<approvalKey, text>`：多会话/多审批切换保留各自文本；作答成功后清草稿 + `rememberDraft("")` 并收起浮层 |
 | 文案 | `ctx.locale.register("approval-reason-dock", { zh, en })` + 槽 `locale: NS` 提供的 `t` 席位 |
 | 样式 | 全部 inline style + `var(--dsw-* , fallback)` 主题 token；`position:fixed; right:24px; top:112px; width:344px`（右上角，避开内置审批卡与标题按钮）；不写 `document.body`、不依赖 primitives |
@@ -226,7 +227,7 @@ $git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
 | 2026-11-09 | 0.1.0 | GitHub 仓库 + CI + Release；npm 发布（staged publish + 网页 2FA approve） |
 | 2026-11-09 | 0.1.1 | 会话跟随（`uiSession.current`）、会话名、右上角位置、折叠/立即收起、按审批保存草稿、客户端激活修复（inject 服务名）、窄订阅；harness 104/104，DSH 0.2.2 真机多会话验证通过 |
 | 2026-11-10 | 0.1.2 | docs/市场素材同步版（无运行时代码变更）：tag 与 main 对齐、收录徽章、0.2.1 显式回退安装命令、中英文预览图与 screenshots.json 进入 tag；probe/scripts 移出发布分支 |
-| 2026-11-12 | 0.2.0 | 允许并说明（outcome `allowed-once`，前缀 `（审批同意说明）`，prompt 先于 answer）、允许前二次确认视图（风险说明 / 部分同意提示 / 取消 / Esc / Enter 不直接放行 / 防重复）、按钮文案随草稿切换、说明投递失败阻塞本次决定、说明上限 500；harness 213/213，DSH 0.2.2 真机验证由 Lead 执行；README / CHANGELOG / locale / MAINTENANCE / ALLOW-WITH-NOTE / 预览图同步 |
+| 2026-11-12 | 0.2.0 | 允许并说明（outcome `allowed-once`，前缀 `（审批同意说明）`，prompt 先于 answer）、允许前二次确认视图（风险说明 / 部分同意提示 / 取消 / Esc / Enter 不直接放行 / 防重复）、按钮文案随草稿切换、说明投递失败阻塞本次决定、说明上限 500；harness 213/213；DSH 0.2.2 真机四轮验证通过（允许并说明+取消/Esc/切会话、原生拒绝、拒绝并说明、原生允许），会话事件日志核对 `asked→说明→decided→tool/result` 顺序与 outcome 均正确；README / CHANGELOG / locale / MAINTENANCE / ALLOW-WITH-NOTE / 预览图同步 |
 
 ## 十一、参考
 
