@@ -5,17 +5,22 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Listed on dsh-plugin.org](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/fzqxdedafeiyu/dsh-approval-reason-dock)
 
-An additive web-client plugin for [DeepSeek Harness](https://github.com/deepseek-ai) that lets you type an optional **rejection reason** on approval prompts. The reason is delivered into the running turn as a steering user message *before* the approval is answered as rejected, so the model reads it in its next step instead of guessing why the action was denied.
+An additive web-client plugin for [DeepSeek Harness](https://github.com/deepseek-ai) that attaches an optional **note** to either approval decision: a rejection reason, or an allow note. The note is delivered into the running turn as a steering user message *before* the approval is answered, so the model reads it in its next step instead of guessing why the action was denied — or what constraints came with the permit. Allows are guarded by a confirmation view: the plugin only ships your note, it never widens what the approval authorizes.
 
 [中文说明](README.zh.md)
 
 ## Preview
 
-![Approval reason panel over the built-in approval card](https://raw.githubusercontent.com/FzqxDedafeiyu/dsh-approval-reason-dock/main/docs/preview.png?v=0.1.1)
+![Approval note panel over the built-in approval card, with the allow confirmation view](https://raw.githubusercontent.com/FzqxDedafeiyu/dsh-approval-reason-dock/main/docs/preview.png?v=0.2.0)
 
 ## Why
 
-Harness approval prompts offer `Allow once` / `Reject` only. The rejection result is a closed outcome value with no reason channel, so a rejection reaches the model as a bare "the user rejected tool X". When a denial carries context ("the network is unreliable", "do not touch that file yet"), it belongs in the conversation immediately — not in a follow-up turn.
+Harness approval prompts offer `Allow once` / `Reject` only. The result is a closed outcome value with no note channel, so the model gets a bare "the user rejected tool X" — or a bare allow with none of the constraints you meant to attach. Both gaps matter in practice:
+
+- A denial often carries context ("the network is unreliable", "do not touch that file yet") that belongs in the conversation immediately, not in a follow-up turn.
+- An allow often carries constraints too ("only change files under docs/", "run `--dry-run` first", "send me the diff next turn"). Without a note the model learns them only after the action already ran.
+
+Allowing is also the riskier direction: one click executes the tool call. So the panel asks for confirmation before every allow, explains that allowing runs the call immediately while the plugin itself only delivers the note and does not change the authorization scope, and points partial or conditional approval to **Reject with note** — DSH approval results are only allow/reject, so conditions have to travel as a rejection reason for the model to redo the step.
 
 This plugin adds a small frame-wide panel on top of the host UI. It does **not** replace the built-in approval card, does **not** change the approval protocol or audit events, and fails soft: if the panel cannot render, the built-in card keeps working exactly as before.
 
@@ -24,23 +29,27 @@ This plugin adds a small frame-wide panel on top of the host UI. It does **not**
 - While the active session has an answerable approval, a panel appears in the top-right corner (`shell.overlay` slot).
 - The panel follows the session shown in the main view: only that session's approval is offered, and approvals in other sessions stay quiet until you switch to them. The panel header shows the session title.
 - The panel starts expanded and can be collapsed into a semi-transparent “Pending review” pill so it does not cover the conversation; clicking the pill expands it again. Each new approval starts expanded.
-- Reason drafts are kept per approval, so switching between several sessions with pending approvals does not wipe the text typed for the other one.
-- Type a reason and press **Reject with reason**:
-  1. ``(approval rejection reason) <text>`` is sent into the running session as a steering user message (`remote.session.prompt` with `mode: "steer"`);
-  2. if the turn no longer accepts steering, it is queued (`mode: "queue"`) instead;
-  3. the approval is then answered as `rejected`.
-- Rejection closes the panel immediately. Only a failed reason delivery keeps a dismissible error notice with the error code.
-- **Reject** answers without a reason, same as the built-in button.
+- Note drafts are kept per approval, so switching between several sessions with pending approvals does not wipe the text typed for the other one.
+- The buttons follow the draft:
+  - empty input: **Allow once** / **Reject** — the native outcomes, no message is sent;
+  - non-empty input: **Allow with note** / **Reject with note**.
+- **Allow is two steps, with or without a note**:
+  1. clicking either allow button opens a confirmation view inside the panel — title, what allowing actually does (the tool call runs immediately; the plugin only delivers your note and does not change the authorization scope), a warning that partial or conditional approval should use **Reject with note**, the note preview, and **Confirm allow** / **Cancel**. `Cancel` and `Esc` return to the input view with the draft kept and the approval still unanswered; `Enter` does not confirm; repeated clicks submit only once.
+  2. **Confirm allow** delivers `` (approval allow note) <text> `` (only when a note is present) into the running session as a steering user message (`remote.session.prompt` with `mode: "steer"`, falling back to `mode: "queue"` when the turn no longer accepts steering), and only then answers the approval as `allowed-once`.
+- **Reject with note** skips the confirmation view (the note is the confirmation): `` (approval rejection reason) <text> `` is sent first (steer → queue fallback), then the approval is answered as `rejected`.
+- **A note delivery failure blocks the decision.** If the note cannot be delivered, the approval is **not** answered: the panel stays open with a dismissible error, the draft is kept, and retrying re-sends the note. Nothing is allowed (or rejected) without its note.
+- A successful allow or reject closes the panel immediately and clears that approval's draft.
 
 ## Non-invasive by design
 
 This is the plugin's core selling point: it **adds a layer; it does not change DSH's security architecture**.
 
 - **Client-only bundle.** No host half, no HTTP routes, no `tools/*` hooks — nothing of this plugin runs inside the DSH host process.
-- **The built-in approval card is never replaced or edited.** The approval protocol, audit events, sandbox policy and permission checks stay exactly as shipped. The plugin only reads pending-approval metadata, calls the same `answer()` the built-in card calls, and delivers the reason through the normal session prompt path.
+- **The built-in approval card is never replaced or edited.** The approval protocol, audit events, sandbox policy and permission checks stay exactly as shipped. The plugin only reads pending-approval metadata, calls the same `answer()` the built-in card calls (`allowed-once` / `rejected`), and delivers the note through the normal session prompt path.
+- **The plugin never widens authorization.** The allow confirmation spells this out: allowing runs the tool call exactly as the built-in card would; the note is a hint to the model, not an extra permission. The plugin cannot grant anything beyond the approval being answered.
 - **Fail-soft.** If the panel cannot render or crashes, approvals keep working through the built-in card with native behavior.
 - **Subagent sessions are left alone.** DSH disables approval prompts there and auto-rejects escalation; the plugin never claims those interactions and renders nothing.
-- **Human-readable trail.** The reason is an ordinary steering user message, so the transcript records what was rejected and why — useful when a human reviews or debugs a session later.
+- **Human-readable trail.** The note is an ordinary steering user message, so the transcript records what was rejected/approved and why — useful when a human reviews or debugs a session later.
 
 ## Install
 
@@ -52,6 +61,7 @@ Version match:
 | --- | --- | --- |
 | `0.2.1-rc.2` | `0.1.0` | verified stable; `0.1.1` is not supported on this line |
 | `0.2.2-rc.1` | `0.1.1`+ | verified (all 0.1.1 real-machine tests ran here) |
+| `0.2.2-rc.1`+ | `0.2.0`+ | verified on the DSH 0.2.2 line (allow note + allow confirmation) |
 
 On DSH `0.2.1-rc.2`, install the verified older line explicitly:
 
@@ -65,10 +75,10 @@ declared in `exports.inject`, and that service was not verified to exist in the
 compatibility, so 0.1.1 may be flagged as incompatible on 0.2.1; pinning
 `@0.1.0` avoids depending on that check.
 
-`0.1.2` is a documentation/market-sync release: runtime behavior is identical
-to `0.1.1`, but the tagged release now carries the market materials
-(dsh-plugin.org listing badge, CLI install command, split English/Chinese
-preview images and `screenshots.json`).
+`0.1.2` was a documentation/market-sync release with runtime behavior identical
+to `0.1.1`. `0.2.0` adds the allow note and the allow confirmation on top of the
+same non-invasive client path; `engines.dsh` and the client inject set are
+unchanged.
 
 Install with the DSH CLI (npm package):
 
@@ -103,11 +113,12 @@ The bundle ships `cordis.patch.yml`, `index.js` (empty Host half), `client.js` (
 
 - The browser half uses DSH client internals: the `shell.overlay` slot, `uiSession` session-status interactions, and `remote.session.prompt`. These APIs are not a stable public contract; a Harness upgrade may require a plugin update.
 - If an internal API is missing, the panel stays hidden and approvals still work through the built-in card (fail-soft).
+- The confirmation view and the two-step allow flow are implemented in the plugin bundle itself; the built-in card's own buttons are unchanged.
 - The plugin sends no network requests and reads no session content beyond the pending approval metadata.
 
 ## Privacy
 
-The reason you type becomes a normal user message in the session log and model context (capped at 500 characters, plain text, never rendered as HTML). Nothing is sent anywhere else.
+Whatever note you type — a rejection reason or an allow note — becomes a normal user message in the session log and model context (capped at 500 characters, plain text, never rendered as HTML), delivered through the ordinary session prompt path. It is not a private channel to the plugin: the host and the model treat it exactly like something you would have typed into the conversation. Nothing is sent anywhere else, and the plugin stores nothing outside the page.
 
 ## Uninstall
 
@@ -119,7 +130,7 @@ Remove the `dsh-approval-reason-dock` entry from `dsh.profile.bundles` (or use P
 node test/harness.mjs
 ```
 
-The harness checks the manifest/packaging shape, loads the real `client.js` factory, and drives the approval flow (reason delivery, steer→queue fallback, failure notices, already-settled approvals) against a fake React/Cordis/slot environment. `npm run pack:check` verifies the published file list.
+`node test/harness.mjs` runs 213 checks: it verifies the manifest/packaging shape, loads the real `client.js` factory, and drives the approval flows against a fake React/Cordis/slot environment — allow/reject with and without notes, note delivery before the answer, the steer→queue fallback, the allow confirmation view (cancel, `Esc`, `Enter`, repeated clicks), the delivery-failure blocking path, already-settled approvals, and the i18n/panel rendering. Component interactions render through `react-test-renderer` (dev-only). `npm run pack:check` verifies the published file list.
 
 Repository layout:
 

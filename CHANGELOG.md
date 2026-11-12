@@ -4,17 +4,53 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-11-12
+
+### Added
+
+- **Allow with a note.** The panel now also attaches a note to `allow once`:
+  `(approval allow note) <text>` is delivered into the running turn as a
+  steering user message (falling back to a queued message when the turn no
+  longer accepts steering), and only then is the approval answered as
+  `allowed-once`. With an empty input the allow stays native (no message).
+- **Allow confirmation.** Clicking either allow button no longer runs the tool
+  call immediately. A confirmation view explains that allowing executes the
+  call right away, that the plugin only delivers the note and does not change
+  the authorization scope, and that partial or conditional approval should use
+  “Reject with note”; it previews the note and requires **Confirm allow**.
+  `Cancel` / `Esc` return to the input view with the draft kept and the
+  approval unanswered; `Enter` does not confirm; repeated clicks submit only
+  once.
+- Both decisions are now **blocked on note delivery failure**: the approval is
+  not answered, the panel stays open with a retryable error, and the draft is
+  kept — so a note can no longer be lost while the action already ran.
 
 ### Changed
 
-- Documented the plugin's core positioning: **non-invasive by design**. README
-  (EN/ZH) gained a dedicated section, `package.json` description and the GitHub
-  About text were updated — client-only bundle (no host half, routes or
-  `tools/*` hooks), the built-in approval card / approval protocol / audit
-  events / sandbox policy stay untouched, fail-soft when the panel cannot
-  render, and subagent approvals are left entirely to DSH (auto-rejected there).
-  Version unchanged; documentation-only.
+- The buttons follow the draft: an empty input offers native `Allow once` /
+  `Reject`; a non-empty draft switches to `Allow with note` / `Reject with
+  note`. The old rejection-only keys (`send` / `plain`) were replaced by
+  `rejectWithNote` / `rejectPlain`.
+- The panel hint is now generic — “Add a note (optional; it enters the running
+  turn immediately)” — instead of rejection-only wording.
+- Internal: `rejectApproval(target, remote, prefix, reason)` was generalized
+  into `answerApproval(target, remote, prefix, reason, outcome)` (note prompt
+  strictly before `answer()`), with `allowApproval(...)` as the
+  `allowed-once` wrapper; both are exposed through `exports.__internals`. The
+  note length cap stays 500 characters.
+- Documentation: documented the plugin's core positioning — **non-invasive by
+  design**. README (EN/ZH) has a dedicated section, the GitHub About text and
+  the `locale/*.json` display metadata were updated: client-only bundle (no
+  host half, routes or `tools/*` hooks), the built-in approval card, approval
+  protocol, audit events and sandbox policy stay untouched, fail-soft when the
+  panel cannot render, and subagent approvals are left entirely to DSH
+  (auto-rejected there). This entry was carried over from the former
+  `Unreleased` section.
+- README (EN/ZH) behavior sections, `docs/MAINTENANCE.md`,
+  `docs/ALLOW-WITH-NOTE.md` status and both preview images were updated for the
+  new two-decision flow.
+- `engines.dsh` and the client inject set are unchanged; no host half, routes
+  or `tools/*` hooks were added.
 
 ## [0.1.2] - 2026-11-10
 

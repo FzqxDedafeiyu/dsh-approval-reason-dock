@@ -3,8 +3,10 @@
  *
  * Runs without DSH: it validates the published package shape, loads the real
  * browser bundle factory with React, drives the slot registration against a
- * fake Cordis context, and exercises the rejection flow through the exported
- * internals. Nothing here touches a running Harness instance.
+ * fake Cordis context, exercises the allow/reject note flow through the
+ * exported internals, and drives the panel itself with react-test-renderer
+ * (input view -> confirm view -> answer). Nothing here touches a running
+ * Harness instance.
  *
  * Run: node test/harness.mjs
  */
@@ -12,7 +14,11 @@ import fs from "node:fs";
 import path from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import TestRenderer from "react-test-renderer";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+const act = TestRenderer.act;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let failures = 0;
 let checks = 0;
@@ -60,6 +66,7 @@ check("exports ./icon points at icon.svg", pkg.exports?.["./icon"] === "./icon.s
 check("repository points at the GitHub repo", /github\.com\/FzqxDedafeiyu\/dsh-approval-reason-dock/.test(pkg.repository?.url ?? ""), pkg.repository?.url);
 check("files covers every shipped runtime file", ["index.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "LICENSE"].every((entry) => pkg.files?.includes(entry)), JSON.stringify(pkg.files));
 check("devDependencies pin React for the harness", typeof pkg.devDependencies?.react === "string", JSON.stringify(pkg.devDependencies));
+check("devDependencies pin react-test-renderer for the harness", typeof pkg.devDependencies?.["react-test-renderer"] === "string", JSON.stringify(pkg.devDependencies));
 check("test script runs this harness", pkg.scripts?.test === "node test/harness.mjs", pkg.scripts?.test);
 
 /* --------------------------------------------------------- package files */
@@ -114,8 +121,52 @@ equal("bundle inject", bundle.inject, ["slots", "locale", "remote", "remote.sess
 
 const internals = bundle.__internals;
 check("internals exported for the harness", internals !== undefined && typeof internals.deliverReason === "function");
+check("internals expose answerApproval", typeof internals.answerApproval === "function");
+check("internals expose allowApproval", typeof internals.allowApproval === "function");
+check("internals keep rejectApproval", typeof internals.rejectApproval === "function");
 equal("locale dictionaries keep the same key set", Object.keys(internals.zh).sort(), Object.keys(internals.en).sort());
 check("both dictionaries fill every key", Object.values(internals.zh).every((value) => typeof value === "string" && value.length > 0) && Object.values(internals.en).every((value) => typeof value === "string" && value.length > 0));
+
+const expectedKeys = [
+  "title",
+  "hint",
+  "placeholder",
+  "allowPlain",
+  "allowWithNote",
+  "rejectPlain",
+  "rejectWithNote",
+  "allowPrefix",
+  "reasonPrefix",
+  "confirmTitle",
+  "confirmBody",
+  "partialAgreementHint",
+  "confirmNote",
+  "confirmAllow",
+  "cancel",
+  "sending",
+  "deliveryFailed",
+  "close",
+  "collapse",
+  "expand",
+  "pendingBadge",
+  "deliveredSteer",
+  "deliveredQueue",
+  "settled",
+  "handled",
+  "handledTitle",
+  "tool",
+  "session",
+  "ariaInput",
+  "ariaPanel",
+  "ariaConfirmPanel",
+];
+equal("zh dictionary uses the 0.2.0 key set", Object.keys(internals.zh).sort(), [...expectedKeys].sort());
+equal("en dictionary uses the 0.2.0 key set", Object.keys(internals.en).sort(), [...expectedKeys].sort());
+check("old send/plain keys are gone", internals.zh.send === undefined && internals.zh.plain === undefined && internals.en.send === undefined && internals.en.plain === undefined);
+check("en allow/reason prefixes keep the trailing space", internals.en.allowPrefix.endsWith(" ") && internals.en.reasonPrefix.endsWith(" "));
+check("allowPrefix marks the allow note", internals.zh.allowPrefix === "（审批同意说明）");
+check("confirm copy preserves the authorization scope", internals.zh.confirmBody.includes("不会改变本次授权范围"));
+check("partialAgreementHint points at reject with note", internals.zh.partialAgreementHint.includes("拒绝并说明"));
 
 /* -------------------------------------------------------------- helpers */
 
@@ -223,6 +274,102 @@ console.log("rejectApproval");
   check("already-settled approval does not throw", result.answered === false);
 }
 
+/* ------------------------------------------------- answerApproval / allow */
+
+console.log("answerApproval / allowApproval");
+function eventTarget(sessionId = "session-1") {
+  const events = [];
+  const target = {
+    sessionId,
+    pending: {
+      kind: "approval",
+      key: `approval:${sessionId}`,
+      toolName: "pwsh",
+      answerable: true,
+      answer: async (outcome) => {
+        events.push({ kind: "answer", outcome });
+      },
+    },
+  };
+  return { target, events };
+}
+
+function eventRemote(respond, events) {
+  const calls = [];
+  return {
+    calls,
+    session: {
+      async prompt(request) {
+        calls.push(request);
+        events.push({ kind: "prompt", mode: request.mode, text: request.content[0].text });
+        return typeof respond === "function" ? respond(request, calls.length) : respond;
+      },
+    },
+  };
+}
+
+const answerKinds = (events) => events.map((event) => event.kind);
+const answerOutcomes = (events) => events.filter((event) => event.kind === "answer").map((event) => event.outcome);
+
+{
+  const { target, events } = eventTarget("allow-plain");
+  const remote = eventRemote({ ok: true }, events);
+  const result = await internals.allowApproval(target, remote, "（审批同意说明）", "");
+  equal("allow without note answers allowed-once", answerOutcomes(events), ["allowed-once"]);
+  equal("allow without note sends no prompt", remote.calls.length, 0);
+  check("allow without note reports answered true", result.answered === true);
+  check("allow without note has no delivery", result.delivery === undefined);
+}
+
+{
+  const { target, events } = eventTarget("allow-note");
+  const remote = eventRemote({ ok: true }, events);
+  const result = await internals.allowApproval(target, remote, "（审批同意说明）", "只改 docs/");
+  equal("allow with note prompts before answering", answerKinds(events), ["prompt", "answer"]);
+  equal("allow note text uses the allow prefix", events[0].text, "（审批同意说明）只改 docs/");
+  equal("allow note lands as steer", events[0].mode, "steer");
+  equal("allow note answers allowed-once", events[1].outcome, "allowed-once");
+  equal("allow note reports steer delivery", result.delivery.mode, "steer");
+}
+
+{
+  const { target, events } = eventTarget("allow-queue");
+  const remote = eventRemote((request, index) => (index === 1 ? { ok: false, error: { code: "session/steer-unavailable", message: "turn ended" } } : { ok: true }), events);
+  const result = await internals.allowApproval(target, remote, "（审批同意说明）", "先 dry-run");
+  equal("allow note falls back to queue", result.delivery.mode, "queue");
+  equal("allow note tried steer then queue", remote.calls.map((call) => call.mode), ["steer", "queue"]);
+  equal("allow still answers after the queue fallback", answerOutcomes(events), ["allowed-once"]);
+}
+
+{
+  const { target, events } = eventTarget("allow-fail");
+  const remote = eventRemote(() => ({ ok: false, error: { code: "session/denied", message: "no such session" } }), events);
+  const result = await internals.allowApproval(target, remote, "（审批同意说明）", "说明");
+  equal("failed allow note answers nothing", answerOutcomes(events), []);
+  check("failed allow note reports answered false", result.answered === false);
+  equal("failed allow note reports a failed delivery", result.delivery.mode, "failed");
+  includes("failed allow note keeps the error code", result.delivery.error, "session/denied");
+  equal("failed allow note tried steer then queue", remote.calls.map((call) => call.mode), ["steer", "queue"]);
+}
+
+{
+  const { target, events } = eventTarget("allow-settled");
+  target.pending.answer = async () => {
+    throw new Error("already settled");
+  };
+  const result = await internals.answerApproval(target, eventRemote({ ok: true }, events), "（审批同意说明）", "", "allowed-once");
+  check("already-settled allow does not throw", result.answered === false);
+  check("already-settled allow has no delivery", result.delivery === undefined);
+}
+
+{
+  const { target, events } = eventTarget("generic");
+  const result = await internals.answerApproval(target, eventRemote({ ok: true }, events), "P", "note", "rejected");
+  equal("answerApproval forwards the requested outcome", answerOutcomes(events), ["rejected"]);
+  equal("answerApproval precedes the answer with the note", answerKinds(events), ["prompt", "answer"]);
+  equal("answerApproval reports steer delivery", result.delivery.mode, "steer");
+}
+
 /* --------------------------------------------------------------- render */
 
 console.log("render");
@@ -279,9 +426,10 @@ check("selected session hides the other session's approval", !zoomMarkup.include
 const zhMarkup = renderWith(zhText, pendingMap, "session-1");
 includes("zh markup shows the title", zhMarkup, "审批待处理");
 includes("zh markup shows the tool", zhMarkup, "工具：pwsh");
-includes("zh markup shows both buttons", zhMarkup, "拒绝并说明");
-includes("zh markup shows the plain reject", zhMarkup, "只拒绝");
-includes("zh markup shows the hint", zhMarkup, "留一句拒绝理由");
+includes("zh markup shows the plain allow", zhMarkup, "允许一次");
+includes("zh markup shows the plain reject", zhMarkup, "拒绝");
+check("zh markup does not offer the note actions on an empty draft", !zhMarkup.includes("允许并说明") && !zhMarkup.includes("拒绝并说明"));
+includes("zh markup shows the updated hint", zhMarkup, "留一句说明");
 includes("zh markup offers a collapse control", zhMarkup, "折叠");
 
 const titledMarkup = renderWith(zhText, pendingMap, "session-1", { "session-1": "改造审批中文与拒绝理由" });
@@ -289,8 +437,333 @@ includes("zh markup shows the session title", titledMarkup, "会话：改造审�
 
 const enMarkup = renderWith(enText, pendingMap, "session-1");
 includes("en markup shows the title", enMarkup, "Approval pending");
-includes("en markup shows the primary action", enMarkup, "Reject with reason");
+includes("en markup shows the plain allow", enMarkup, "Allow once");
+includes("en markup shows the plain reject", enMarkup, ">Reject<");
+includes("en markup shows the updated hint", enMarkup, "Add a note");
 includes("en markup offers a collapse control", enMarkup, "Collapse");
+
+/* ---------------------------------------------------------- interaction */
+
+console.log("interaction");
+function createDockProps(options = {}) {
+  const { t = zhText, target, remote, currentSessionId = "session-1", titles = {}, statusMap = undefined } = options;
+  const map = statusMap ?? new Map([[currentSessionId, { pendingInteraction: target.pending }]]);
+  const byId = {};
+  for (const [id, title] of Object.entries(titles)) byId[id] = { id, title };
+  return {
+    useSessionStatus: (selector) => selector(map),
+    useSessions: (selector) => selector({ byId }),
+    t,
+    remote,
+    uiSession: {
+      current: {
+        getSnapshot: () => ({ key: currentSessionId }),
+        subscribe: () => () => {},
+      },
+    },
+  };
+}
+
+function collectText(node, parts) {
+  if (node === null || node === undefined) return;
+  if (typeof node === "string") {
+    parts.push(node);
+    return;
+  }
+  if (Array.isArray(node)) {
+    for (const child of node) collectText(child, parts);
+    return;
+  }
+  if (typeof node === "object" && Array.isArray(node.children)) collectText(node.children, parts);
+}
+const textOf = (renderer) => {
+  const parts = [];
+  collectText(renderer.toJSON(), parts);
+  return parts.join("\n");
+};
+const buttonsOf = (renderer) => renderer.root.findAllByType("button");
+const buttonText = (node) => node.children.filter((child) => typeof child === "string").join("");
+const findButton = (renderer, label) => buttonsOf(renderer).find((node) => buttonText(node) === label);
+const findTextarea = (renderer) => {
+  const list = renderer.root.findAllByType("textarea");
+  return list.length === 0 ? undefined : list[0];
+};
+const hasButton = (renderer, label) => findButton(renderer, label) !== undefined;
+
+function mountDock(options = {}) {
+  let renderer;
+  act(() => {
+    renderer = TestRenderer.create(React.createElement(internals.ApprovalReasonDock, createDockProps(options)));
+  });
+  return renderer;
+}
+
+function rerenderDock(renderer, options = {}) {
+  act(() => {
+    renderer.update(React.createElement(internals.ApprovalReasonDock, createDockProps(options)));
+  });
+}
+
+function makeTarget(key, toolName = "pwsh", events) {
+  return {
+    sessionId: "session-1",
+    pending: {
+      kind: "approval",
+      key,
+      toolName,
+      answerable: true,
+      answer: async (outcome) => {
+        events.push({ kind: "answer", outcome });
+      },
+    },
+  };
+}
+
+async function clickAsync(node) {
+  await act(async () => {
+    node.props.onClick();
+  });
+}
+
+function clickSync(node) {
+  act(() => {
+    node.props.onClick();
+  });
+}
+
+function typeNote(renderer, value) {
+  const area = findTextarea(renderer);
+  act(() => {
+    area.props.onChange({ target: { value } });
+  });
+}
+
+// --- empty draft labels ---------------------------------------------------
+{
+  const events = [];
+  const target = makeTarget("approval:ui-empty", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  check("empty draft renders the plain allow button", hasButton(renderer, "允许一次"));
+  check("empty draft renders the plain reject button", hasButton(renderer, "拒绝"));
+  check("empty draft hides allow-with-note", !hasButton(renderer, "允许并说明"));
+  check("empty draft hides reject-with-note", !hasButton(renderer, "拒绝并说明"));
+  check("empty draft renders the textarea", findTextarea(renderer) !== undefined);
+}
+
+// --- typing switches the labels ------------------------------------------
+{
+  const events = [];
+  const target = makeTarget("approval:ui-typed", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "只改 docs/ 下的文件");
+  check("typed draft switches to allow-with-note", hasButton(renderer, "允许并说明"));
+  check("typed draft switches to reject-with-note", hasButton(renderer, "拒绝并说明"));
+  check("typed draft hides the plain allow", !hasButton(renderer, "允许一次"));
+  equal("typing sends no prompt", remote.calls.length, 0);
+  equal("typing answers nothing", answerOutcomes(events), []);
+}
+
+// --- allow opens the confirm view only -----------------------------------
+{
+  const events = [];
+  const target = makeTarget("approval:ui-confirm", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "只改 docs/ 下的文件");
+  clickSync(findButton(renderer, "允许并说明"));
+  const text = textOf(renderer);
+  check("confirm view shows the title", text.includes("确认允许这次执行？"));
+  check("confirm view shows the risk body", text.includes("允许后会立即执行该工具调用"));
+  check("confirm view shows the partial-agreement hint", text.includes("部分同意或附条件放行"));
+  check("confirm view previews the note", text.includes("将附上说明：只改 docs/ 下的文件"));
+  check("confirm view shows the confirm button", hasButton(renderer, "确认允许"));
+  check("confirm view shows the cancel button", hasButton(renderer, "取消"));
+  check("confirm view hides the textarea", findTextarea(renderer) === undefined);
+  equal("opening the confirm view sends no prompt", remote.calls.length, 0);
+  equal("opening the confirm view answers nothing", answerOutcomes(events), []);
+  equal("opening the confirm view keeps the draft", internals.recallDraft("approval:ui-confirm"), "只改 docs/ 下的文件");
+
+  // --- cancel returns to the input view, draft kept, nothing answered ---
+  clickSync(findButton(renderer, "取消"));
+  check("cancel returns to the input view", findTextarea(renderer) !== undefined);
+  equal("cancel keeps the draft", findTextarea(renderer).props.value, "只改 docs/ 下的文件");
+  equal("cancel sends no prompt", remote.calls.length, 0);
+  equal("cancel answers nothing", answerOutcomes(events), []);
+  check("cancel closes the confirm view", !textOf(renderer).includes("确认允许这次执行？"));
+}
+
+// --- confirm allow with a note -------------------------------------------
+{
+  const events = [];
+  const target = makeTarget("approval:ui-allow-note", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "只改 docs/ 下的文件");
+  clickSync(findButton(renderer, "允许并说明"));
+  await clickAsync(findButton(renderer, "确认允许"));
+  equal("confirmed allow with note answers allowed-once", answerOutcomes(events), ["allowed-once"]);
+  equal("confirmed allow with note sends one prompt", remote.calls.length, 1);
+  equal("confirmed allow note uses the allow prefix", remote.calls[0].content[0].text, "（审批同意说明）只改 docs/ 下的文件");
+  equal("confirmed allow note is steered", remote.calls[0].mode, "steer");
+  equal("confirmed allow prompts before answering", answerKinds(events), ["prompt", "answer"]);
+  equal("confirmed allow clears the draft map", internals.recallDraft("approval:ui-allow-note"), "");
+  check("confirmed allow returns to the input view", findTextarea(renderer) !== undefined);
+  equal("confirmed allow clears the textarea", findTextarea(renderer).props.value, "");
+}
+
+// --- confirm allow without a note ----------------------------------------
+{
+  const events = [];
+  const target = makeTarget("approval:ui-allow-plain", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  clickSync(findButton(renderer, "允许一次"));
+  check("plain allow also opens the confirm view", textOf(renderer).includes("确认允许这次执行？"));
+  check("plain confirm view has no note preview", !textOf(renderer).includes("将附上说明"));
+  await clickAsync(findButton(renderer, "确认允许"));
+  equal("confirmed plain allow answers allowed-once", answerOutcomes(events), ["allowed-once"]);
+  equal("confirmed plain allow sends no prompt", remote.calls.length, 0);
+}
+
+// --- duplicate confirm clicks submit once --------------------------------
+{
+  const events = [];
+  const target = makeTarget("approval:ui-double", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "重复点击测试");
+  clickSync(findButton(renderer, "允许并说明"));
+  const confirm = findButton(renderer, "确认允许");
+  await act(async () => {
+    confirm.props.onClick();
+    confirm.props.onClick();
+  });
+  equal("duplicate confirm clicks answer once", answerOutcomes(events), ["allowed-once"]);
+  equal("duplicate confirm clicks prompt once", remote.calls.length, 1);
+}
+
+// --- failed delivery blocks the allow ------------------------------------
+{
+  const events = [];
+  const target = makeTarget("approval:ui-fail", "pwsh", events);
+  const remote = eventRemote(() => ({ ok: false, error: { code: "session/denied", message: "no such session" } }), events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "只改 docs/");
+  clickSync(findButton(renderer, "允许并说明"));
+  await clickAsync(findButton(renderer, "确认允许"));
+  equal("failed delivery answers nothing", answerOutcomes(events), []);
+  const text = textOf(renderer);
+  check("failed delivery shows the failure notice", text.includes("审批未提交：说明发送失败"));
+  check("failed delivery keeps the error code visible", text.includes("session/denied"));
+  check("failed delivery returns to the input view", findTextarea(renderer) !== undefined);
+  equal("failed delivery keeps the draft", findTextarea(renderer).props.value, "只改 docs/");
+  check("failed delivery keeps the approval panel", text.includes("审批待处理"));
+  equal("failed delivery tried steer then queue", remote.calls.map((call) => call.mode), ["steer", "queue"]);
+}
+
+// --- reject never visits the confirm view --------------------------------
+{
+  const events = [];
+  const target = makeTarget("approval:ui-reject-note", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "先别发截图");
+  await clickAsync(findButton(renderer, "拒绝并说明"));
+  check("reject does not open the confirm view", !textOf(renderer).includes("确认允许这次执行？"));
+  equal("reject with note prompts before answering", answerKinds(events), ["prompt", "answer"]);
+  equal("reject note uses the rejection prefix", events[0].text, "（审批拒绝理由）先别发截图");
+  equal("reject answers rejected", answerOutcomes(events), ["rejected"]);
+  equal("reject clears the draft map", internals.recallDraft("approval:ui-reject-note"), "");
+  equal("reject clears the textarea", findTextarea(renderer).props.value, "");
+}
+
+{
+  const events = [];
+  const target = makeTarget("approval:ui-reject-plain", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  await clickAsync(findButton(renderer, "拒绝"));
+  equal("plain reject answers rejected", answerOutcomes(events), ["rejected"]);
+  equal("plain reject sends no prompt", remote.calls.length, 0);
+  check("plain reject does not open the confirm view", !textOf(renderer).includes("确认允许这次执行？"));
+}
+
+// --- keyboard rules in the confirm view ----------------------------------
+{
+  const originalAdd = globalThis.addEventListener;
+  const originalRemove = globalThis.removeEventListener;
+  const added = [];
+  const removed = [];
+  globalThis.addEventListener = (type, handler) => {
+    added.push({ type, handler });
+  };
+  globalThis.removeEventListener = (type, handler) => {
+    removed.push({ type, handler });
+  };
+  try {
+    const events = [];
+    const target = makeTarget("approval:ui-keys", "pwsh", events);
+    const remote = eventRemote({ ok: true }, events);
+    const renderer = mountDock({ target, remote });
+    typeNote(renderer, "键盘测试");
+    clickSync(findButton(renderer, "允许并说明"));
+    const keydownAdds = added.filter((entry) => entry.type === "keydown");
+    equal("confirm view subscribes to keydown on globalThis", keydownAdds.length, 1);
+    check("keydown subscription receives a handler", typeof keydownAdds[0]?.handler === "function");
+
+    let prevented = 0;
+    const event = (key) => ({ key, preventDefault: () => (prevented += 1) });
+
+    act(() => {
+      keydownAdds[0].handler(event("Enter"));
+    });
+    equal("Enter is preventDefaulted", prevented, 1);
+    check("Enter keeps the confirm view open", textOf(renderer).includes("确认允许这次执行？"));
+    equal("Enter answers nothing", answerOutcomes(events), []);
+
+    act(() => {
+      keydownAdds[0].handler(event("Escape"));
+    });
+    equal("Escape is preventDefaulted", prevented, 2);
+    check("Escape returns to the input view", findTextarea(renderer) !== undefined);
+    check("Escape closes the confirm view", !textOf(renderer).includes("确认允许这次执行？"));
+    equal("Escape keeps the draft", findTextarea(renderer).props.value, "键盘测试");
+    equal("Escape answers nothing", answerOutcomes(events), []);
+    equal("Escape sends no prompt", remote.calls.length, 0);
+    check(
+      "keydown listener is removed when the view changes",
+      removed.some((entry) => entry.type === "keydown" && entry.handler === keydownAdds[0].handler),
+    );
+  } finally {
+    globalThis.addEventListener = originalAdd;
+    globalThis.removeEventListener = originalRemove;
+  }
+}
+
+// --- new approval / session switch resets the view -----------------------
+{
+  const eventsA = [];
+  const eventsB = [];
+  const targetA = makeTarget("approval:ui-switch-a", "pwsh", eventsA);
+  const targetB = makeTarget("approval:ui-switch-b", "edit", eventsB);
+  const remoteA = eventRemote({ ok: true }, eventsA);
+  const remoteB = eventRemote({ ok: true }, eventsB);
+  const renderer = mountDock({ target: targetA, remote: remoteA, currentSessionId: "session-1" });
+  typeNote(renderer, "甲草稿");
+  clickSync(findButton(renderer, "允许并说明"));
+  check("dispatch: confirm view is open before switching", textOf(renderer).includes("确认允许这次执行？"));
+
+  rerenderDock(renderer, { target: targetB, remote: remoteB, currentSessionId: "session-2" });
+  check("session switch returns to the input view", findTextarea(renderer) !== undefined);
+  equal("session switch loads the other approval's empty draft", findTextarea(renderer).props.value, "");
+  includes("session switch shows the other session's tool", textOf(renderer), "工具：edit");
+
+  rerenderDock(renderer, { target: targetA, remote: remoteA, currentSessionId: "session-1" });
+  equal("switching back restores the draft by approval key", findTextarea(renderer).props.value, "甲草稿");
+  check("switching back restores the input view", !textOf(renderer).includes("确认允许这次执行？"));
+}
 
 /* --------------------------------------------------------------- wiring */
 

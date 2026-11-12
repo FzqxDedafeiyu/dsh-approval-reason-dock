@@ -2,81 +2,57 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>dsh-approval-reason-dock preview (0.1.1)</title>
+<title>dsh-approval-reason-dock preview (0.2.0, zh)</title>
 <style>
   :root {
-    --bg: #141414;
-    --bg-2: #1e1e1e;
-    --border: #3a3a3a;
-    --text: #e8e8e8;
-    --text-2: #b9b9b9;
-    --text-3: #8a8a8a;
-    --warn: #e0a45e;
-    --primary-fill: #f0f0f0;
-    --primary-ink: #141414;
-    --input-bg: #10141a;
-    --radius-md: 9px;
-    --radius-xl: 14px;
+    --bg: #141414; --bg-2: #1e1e1e; --border: #3a3a3a;
+    --text: #e8e8e8; --text-2: #b9b9b9; --text-3: #9a9a9a;
+    --warn: #e0a45e; --primary-fill: #f0f0f0; --primary-ink: #141414;
+    --input-bg: #10141a; --radius-md: 9px; --radius-xl: 14px;
     --shadow: 0 8px 28px rgba(0,0,0,.35);
-    font-size: 13px;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; width: 1000px; height: 600px; overflow: hidden; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font: 13px/1.5 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
-  }
+  body { background: var(--bg); color: var(--text); font: 13px/1.5 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; }
   .window { position: relative; width: 1000px; height: 600px; }
-  .sidebar {
-    position: absolute; inset: 0 auto 0 0; width: 240px;
-    background: #101216; border-right: 1px solid #262a30;
-    padding: 14px 10px; color: var(--text-3); font-size: 13px;
-  }
+  .sidebar { position: absolute; inset: 0 auto 0 0; width: 240px; background: #101216; border-right: 1px solid #262a30; padding: 14px 10px; color: var(--text-3); }
   .sidebar .section { padding: 4px 8px 10px; color: #6f7680; font-size: 12px; }
   .sidebar .item { padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sidebar .item.active { background: #23272e; color: var(--text); }
   .main { position: absolute; left: 240px; right: 0; top: 0; bottom: 0; padding: 20px 26px; }
   .main .line { color: var(--text-2); margin-bottom: 12px; }
-  .main .user { justify-self: end; width: fit-content; margin-left: auto; background: #24344d; color: #dfe8f5; padding: 9px 13px; border-radius: 10px; }
-  .builtin {
-    position: absolute; left: 266px; right: 40px; bottom: 24px;
-    border: 1px solid #6b4a22; border-radius: var(--radius-xl);
-    background: var(--bg-2); overflow: hidden; opacity: .55;
-  }
+  .main .user { width: fit-content; margin-left: auto; margin-right: 374px; background: #24344d; color: #dfe8f5; padding: 9px 13px; border-radius: 10px; }
+  .builtin { position: absolute; left: 266px; bottom: 24px; width: 330px; border: 1px solid #6b4a22; border-radius: var(--radius-xl); background: var(--bg-2); overflow: hidden; opacity: .55; }
   .builtin .strip { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #2a2115; color: var(--warn); }
   .builtin .body { padding: 12px 16px 16px; color: var(--text-2); font-size: 12px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
-  .panel {
-    position: absolute; right: 24px; top: 112px; width: 344px;
-    padding: 12px 14px; border-radius: var(--radius-xl);
-    border: 1px solid var(--border); background: var(--bg-2);
-    color: var(--text); box-shadow: var(--shadow);
-  }
-  .head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+
+  /* 右侧两态：1) 已填说明的输入态，2) 允许二次确认视图 */
+  .stack { position: absolute; right: 24px; top: 20px; width: 344px; display: flex; flex-direction: column; }
+  .state-label { margin: 0 0 4px 2px; color: #6f7680; font-size: 10px; letter-spacing: .08em; line-height: 1.2; }
+  .state-label + .panel { margin-bottom: 12px; }
+  .panel { width: 344px; padding: 10px 13px 12px; border-radius: var(--radius-xl); border: 1px solid var(--border); background: var(--bg-2); color: var(--text); box-shadow: var(--shadow); }
+  .head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; line-height: 1.4; }
   .head .dot { color: var(--warn); }
   .head .title { font-weight: 600; flex: none; }
-  .head .tool { color: #9a9a9a; font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .head .collapse { margin-left: auto; padding: 0 4px; border: 0; background: transparent; color: var(--text-3); font: inherit; line-height: 1; cursor: pointer; }
-  .session { margin-bottom: 6px; color: var(--text-3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .hint { margin-bottom: 8px; color: var(--text-2); font-size: 12px; }
-  textarea {
-    width: 100%; min-height: 64px; resize: vertical; padding: 8px 10px;
-    border-radius: var(--radius-md); border: 1px solid var(--border);
-    background: var(--input-bg); color: var(--text); font: inherit; outline: none;
-  }
-  .actions { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+  .head .tool { color: var(--text-3); font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .head .collapse { margin-left: auto; padding: 0 4px; border: 0; background: transparent; color: #8a8a8a; font: inherit; line-height: 1; cursor: pointer; }
+  .session { margin-bottom: 4px; color: var(--text-3); font-size: 12px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hint { margin-bottom: 6px; color: var(--text-2); font-size: 12px; line-height: 1.4; }
+  textarea { display: block; width: 100%; min-height: 60px; resize: vertical; padding: 8px 10px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font: inherit; outline: none; }
+  .actions { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
   button { border-radius: var(--radius-md); padding: 6px 12px; font: inherit; cursor: pointer; border: 1px solid transparent; }
   .primary { background: var(--primary-fill); color: var(--primary-ink); font-weight: 600; }
   .ghost { background: transparent; color: var(--text-2); border-color: var(--border); }
-  .pill-row { position: absolute; right: 24px; top: 356px; display: flex; align-items: center; gap: 10px; }
-  .pill-row .caption { color: var(--text-3); font-size: 12px; }
-  .pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 12px; border-radius: 999px;
-    border: 1px solid var(--border); background: var(--bg-2);
-    color: var(--text-2); opacity: .82; box-shadow: 0 2px 8px rgba(0,0,0,.25);
-  }
+  .danger { background: var(--warn); color: var(--primary-ink); font-weight: 600; }
+  .confirm-title { margin-bottom: 4px; font-weight: 600; line-height: 1.4; }
+  .confirm-body { margin-bottom: 6px; color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
+  .warn-hint { margin-bottom: 6px; color: var(--warn); font-size: 11.5px; line-height: 1.4; }
+  .note-preview { margin-bottom: 6px; padding: 6px 8px; border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
+
+  .pill-row { position: absolute; left: 266px; top: 414px; display: flex; align-items: center; gap: 10px; }
+  .pill-row .caption { color: #6f7680; font-size: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); opacity: .82; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .pill .dot { color: var(--warn); }
   .pill .tool { color: var(--text-3); font-size: 12px; }
   .caption-bottom { position: absolute; left: 266px; bottom: 6px; color: #5f666f; font-size: 11px; }
@@ -93,29 +69,51 @@
     </div>
 
     <div class="main">
-      <div class="line">Approval prompts normally offer allow / reject only.</div>
-      <div class="line user">Let me approve that screenshot upload</div>
-      <div class="line">Waiting for the approval decision…</div>
+      <div class="line">审批提示一般只有允许 / 拒绝两个动作。</div>
+      <div class="line user">把那张截图允许上传吧</div>
+      <div class="line">等待审批结果…</div>
     </div>
 
     <div class="builtin">
       <div class="strip"><span class="dot"></span>等待审批</div>
-      <div class="body">内置审批卡保持原样（允许一次 / 拒绝）；本插件只叠加一个可选的拒绝理由浮层。</div>
+      <div class="body">内置审批卡保持原样；浮层给允许 / 拒绝加可选说明，并在允许前二次确认。</div>
     </div>
 
-    <div class="panel">
-      <div class="head">
-        <span class="dot"></span>
-        <span class="title">审批待处理</span>
-        <span class="tool">工具：pwsh</span>
-        <button class="collapse" title="折叠">–</button>
+    <div class="stack">
+      <div class="state-label">① 输入态 — 已填说明</div>
+      <div class="panel">
+        <div class="head">
+          <span class="dot"></span>
+          <span class="title">审批待处理</span>
+          <span class="tool">工具：pwsh</span>
+          <button class="collapse" title="折叠">–</button>
+        </div>
+        <div class="session">会话：改造审批中文与拒绝理由</div>
+        <div class="hint">留一句说明（可选，会立即进入当前对话）</div>
+        <textarea>只改 docs/ 下的文件；先 --dry-run 试一遍。</textarea>
+        <div class="actions">
+          <button class="primary">允许并说明</button>
+          <button class="ghost">拒绝并说明</button>
+        </div>
       </div>
-      <div class="session">会话：改造审批中文与拒绝理由</div>
-      <div class="hint">留一句拒绝理由（可选，会立即进入当前对话）</div>
-      <textarea>网络不稳，先别把截图发出去；等我确认后再做。</textarea>
-      <div class="actions">
-        <button class="primary">拒绝并说明</button>
-        <button class="ghost">只拒绝</button>
+
+      <div class="state-label">② 允许二次确认</div>
+      <div class="panel">
+        <div class="head">
+          <span class="dot"></span>
+          <span class="title">审批待处理</span>
+          <span class="tool">工具：pwsh</span>
+          <button class="collapse" title="折叠">–</button>
+        </div>
+        <div class="session">会话：改造审批中文与拒绝理由</div>
+        <div class="confirm-title">确认允许这次执行？</div>
+        <div class="confirm-body">允许后会立即执行该工具调用。本插件只负责把补充说明送给模型，不会改变本次授权范围。</div>
+        <div class="warn-hint">部分同意或附条件放行，请点「拒绝并说明」。</div>
+        <div class="note-preview">将附上说明：只改 docs/ 下的文件；先 --dry-run 试一遍。</div>
+        <div class="actions">
+          <button class="danger">确认允许</button>
+          <button class="ghost">取消</button>
+        </div>
       </div>
     </div>
 
@@ -124,7 +122,7 @@
       <span class="pill"><span class="dot"></span>待审核<span class="tool">pwsh</span></span>
     </div>
 
-    <div class="caption-bottom">0.1.1 · 浮层跟随当前会话（右上角），草稿按审批分别保留</div>
+    <div class="caption-bottom">0.2.0 · 浮层跟随当前会话（右上角）；允许前先二次确认</div>
   </div>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # 交付与维护手册（dsh-approval-reason-dock）
 
-> 版本：0.1.2 · 归档日期：2026-11-10 · 维护者：主人 / DSH 智能体
+> 版本：0.2.0 · 归档日期：2026-11-12 · 维护者：主人 / DSH 智能体
 > 这份文档记录**做了什么、放在哪、怎么改、怎么发、出问题怎么查**，供以后维护直接查阅。
 
 ## 一、项目概览
@@ -8,27 +8,27 @@
 | 项 | 内容 |
 |---|---|
 | 名称 | `dsh-approval-reason-dock` |
-| 定位 | DeepSeek Harness Web 客户端的**新增层**插件：审批卡出现时提供可选的「拒绝理由」，理由先作为 steering 用户消息进入当前对话，再提交 `rejected` |
-| 边界 | **不替换**内置审批卡、**不改**审批协议/审计事件、不动 `app.asar`；渲染失败时静默隐藏，内置卡照常工作（fail-soft） |
+| 定位 | DeepSeek Harness Web 客户端的**新增层**插件：审批卡出现时提供可选的「说明」——拒绝时是理由、允许时是附言；说明先作为 steering 用户消息进入当前对话，再把审批答成 `rejected` / `allowed-once`；允许前还有一次面板内二次确认 |
+| 边界 | **不替换**内置审批卡、**不改**审批协议/审计事件、不动 `app.asar`；插件只负责送说明、**不改变授权范围**；渲染失败时静默隐藏，内置卡照常工作（fail-soft） |
 | 技术栈 | 纯 JavaScript（无构建链）· `shell.overlay` 槽 · React · `--dsw-*` 主题 token · zh/en locale |
-| 兼容 | `engines.dsh: >=0.2.2-rc.1 <0.3.0`；**版本匹配**：DSH `0.2.1-rc.2` ↔ 插件 `0.1.0`（已验证稳定），DSH `0.2.2-rc.1` ↔ 插件 `0.1.1` / `0.1.2`（已验证） |
+| 兼容 | `engines.dsh: >=0.2.2-rc.1 <0.3.0`；**版本匹配**：DSH `0.2.1-rc.2` ↔ 插件 `0.1.0`（已验证稳定），DSH `0.2.2-rc.1` ↔ 插件 `0.1.1` / `0.1.2`（已验证），DSH `0.2.2` 线 ↔ 插件 `0.2.0`（允许并说明 + 允许二次确认） |
 
 ### 为什么要做
 
-Harness 审批结果只有封闭枚举（`allowed-once / rejected / cancelled / unavailable`），拒绝时没有理由通道；模型只能收到「the user rejected tool X」。本插件在 UI 层补一个理由输入，用 `remote.session.prompt` 把理由以 `mode: "steer"` 送进当前轮（不可用时降级 `queue`），再回答 `rejected`。
+Harness 审批结果只有封闭枚举（`allowed-once / rejected / cancelled / unavailable`），拒绝时没有理由通道；模型只能收到「the user rejected tool X」。允许时同样没地方带交代（「只改 docs/ 下的文件」「先 --dry-run 试一遍」），而放行本身会立即执行、更需要一次确认。本插件在 UI 层补一个说明输入：用 `remote.session.prompt` 把说明以 `mode: "steer"` 送进当前轮（不可用时降级 `queue`），说明送达后才回答审批（`rejected` / `allowed-once`）；允许前先进入面板内二次确认（风险说明 + 部分同意提示），说明投递失败则阻塞本次决定。
 
 ## 二、产物与链接
 
 | 产物 | 位置 |
 |---|---|
 | GitHub 仓库 | https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock （公开，MIT） |
-| npm 包 | https://www.npmjs.com/package/dsh-approval-reason-dock （`0.1.2`，dist-tag `latest`） |
-| GitHub Release | https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/releases/tag/v0.1.2 |
+| npm 包 | https://www.npmjs.com/package/dsh-approval-reason-dock （`0.2.0`，dist-tag `latest`） |
+| GitHub Release | https://github.com/FzqxDedafeiyu/dsh-approval-reason-dock/releases/tag/v0.2.0 |
 | 仓库工作副本 | `<repo working copy>` |
 | 本机已安装插件 | `$DSH_HOME/plugins/<plugin-dir>`（profile 通过 bundle 机制引用） |
 | 本机旧版备份 | `<plugin-dir>.bak-<timestamp>`（旧 DOM 实现） |
 | 分析与原型产物 | `<analysis dir>`（app.asar 解析脚本、原型、截图等） |
-| 预览图 | 仓库 `docs/preview.png`（英文，默认/npm 用）+ `docs/preview-zh.png`（中文），源文件 `preview.html` / `preview-zh.html` |
+| 预览图 | 仓库 `docs/preview.png`（英文，默认/npm 用）+ `docs/preview-zh.png`（中文），源文件 `preview.html` / `preview-zh.html`；0.2.0 起两张图同时展示「非空草稿态按钮」与「允许二次确认视图」 |
 
 ## 三、仓库结构
 
@@ -60,13 +60,18 @@ test/harness.mjs        # 沙箱测试（manifest/打包/逻辑/SSR 渲染/槽�
 | 当前会话 | `ctx.uiSession.current` 是 binding source：`getSnapshot().key` 即主视图正在显示的会话 id。0.2.1 与 0.2.2 的 `publishMain`/`watchMainRetention` 逐字节一致，切换会话可靠更新（已真机验证） |
 | 状态 | 窄订阅：`useSessionStatus((map) => map.get(currentSessionId))`，再用 `approvalFromStatus()` 取 `kind==="approval" && answerable!==false` 的交互；其他会话的状态变化不会重渲染面板 |
 | 会话名 | `useSessions((s) => sessionTitleOf(s, approval.sessionId))`，显式标题避免多会话认错 |
-| 作答 | `pending.answer("rejected")`（内置卡同一对象） |
-| 理由投递 | `remote.session.prompt({requestId, sessionId, content:[{type:"text", text: prefix+reason}], mode:"steer", clientTimeZone})`；失败自动重试 `mode:"queue"` |
-| 草稿 | `draftsByKey: Map<approvalKey, text>`：多会话/多审批切换保留各自文本，作答后清理 |
+| 作答 | `answerApproval(target, remote, prefix, reason, outcome)`：`reason !== ""` 时先 `await deliverReason(...)`，失败直接返回 `{answered:false, delivery}`、**不 answer**（阻塞策略）；成功才 `await target.pending.answer(outcome)`（与内置卡同一对象）。`rejectApproval` = outcome `rejected` 包装（旧 harness 断言继续可用），`allowApproval` = outcome `allowed-once` 包装；**顺序硬要求：prompt 先于 answer** |
+| 投递通道 | 拒绝与允许共用 `deliverReason`：`remote.session.prompt({requestId, sessionId, content:[{type:"text", text: prefix+reason}], mode:"steer", clientTimeZone})`；当前轮不再接受 steering 时自动降级 `mode:"queue"`；两种都失败才视为 `failed`（阻塞） |
+| 说明前缀 | `deliverReason(remote, sessionId, prefix, reason)` 已 parameterize：允许用 `allowPrefix`（zh `（审批同意说明）` / en `(approval allow note) `），拒绝用 `reasonPrefix`（zh `（审批拒绝理由）` / en `(approval rejection reason) `，英文尾随空格保留）；`MAX_REASON_CHARS = 500`，`normalizeReason` 空白折叠 + trim + 截断 |
+| 视图状态机 | 0.2.0 起 `view: "input" \| "confirm-allow"` + `submittingRef`（同步防重）：点允许只 `setView("confirm-allow")`（**不发 prompt、不 answer、不清草稿**）；确认视图含 `confirmTitle` / `confirmBody` / `partialAgreementHint`（warn 色）/ 非空草稿时 `confirmNote` 预览 / `confirmAllow`（warn 底深字）+ `cancel`（ghost）；取消回 input 且保留草稿，重复点击只提交一次 |
+| 按钮文案 | 随草稿切换：空输入 `allowPlain` / `rejectPlain`（原生、不发消息）；非空 `allowWithNote` / `rejectWithNote`；旧键 `send` / `plain` 已删除 |
+| 失败阻塞 | 说明投递 `mode === "failed"` → 不 answer、回 input 视图、保留草稿、`notice = deliveryFailed(error)`；审批已被别处处理（answered false 且无 failed delivery）→ `notice=null` 并清草稿 |
+| 键盘 | input 视图：textarea `Enter`（无 Shift）= 拒绝并说明（安全方向）；confirm 视图：`globalThis.addEventListener` 捕获 `Escape` = 取消（preventDefault），`Enter` = preventDefault 且不动作；view 变化时清理监听，存在性守卫 |
+| 草稿 | `draftsByKey: Map<approvalKey, text>`：多会话/多审批切换保留各自文本；作答成功后清草稿 + `rememberDraft("")` 并收起浮层 |
 | 文案 | `ctx.locale.register("approval-reason-dock", { zh, en })` + 槽 `locale: NS` 提供的 `t` 席位 |
 | 样式 | 全部 inline style + `var(--dsw-* , fallback)` 主题 token；`position:fixed; right:24px; top:112px; width:344px`（右上角，避开内置审批卡与标题按钮）；不写 `document.body`、不依赖 primitives |
 | 生命周期 | 全部注册在 `ctx.effect` 内并返回清理；React 组件内状态随卸载清理 |
-| 测试钩子 | `exports.__internals` 暴露纯逻辑（normalizeReason / errorText / deliverReason / firstApproval / approvalFromStatus / rejectApproval / sessionTitleOf / recallDraft / rememberDraft）供 harness 使用 |
+| 测试钩子 | `exports.__internals` 暴露纯逻辑（normalizeReason / errorText / deliverReason / firstApproval / approvalFromStatus / rejectApproval / answerApproval / allowApproval / sessionTitleOf / recallDraft / rememberDraft）供 harness 使用 |
 
 ### 依赖的 DSH 内部接口（升级风险点）
 
@@ -90,7 +95,7 @@ test/harness.mjs        # 沙箱测试（manifest/打包/逻辑/SSR 渲染/槽�
 
 **`engines.dsh` 下限为什么是 0.2.2**：0.1.1 依赖客户端 `uiSession` 服务注入，该服务在 0.2.1 的 client runner 中**未验证存在**；因此 0.2.1 用户应显式安装 `dsh-approval-reason-dock@0.1.0`。
 
-**升级冒烟**：DSH 升级后触发一次真实审批，确认浮层出现、理由能送达、内置卡仍可正常允许/拒绝；若内部接口变更，面板应静默不出现而不是报错。
+**升级冒烟**：DSH 升级后触发一次真实审批，确认浮层出现、说明能送达（允许/拒绝都测）、允许二次确认可取消、内置卡仍可正常允许/拒绝；若内部接口变更，面板应静默不出现而不是报错。
 
 ## 五、本地开发与测试
 
@@ -98,15 +103,17 @@ test/harness.mjs        # 沙箱测试（manifest/打包/逻辑/SSR 渲染/槽�
 # 工作副本
 cd <repo working copy>
 
-# 安装测试依赖（react / react-dom 仅测试用）
+# 安装测试依赖（react / react-dom / react-test-renderer 仅测试用）
 npm install
 
 # 跑沙箱测试（不接触运行中的 DSH）
-npm test                 # = node test/harness.mjs，当前 81/81
+npm test                 # = node test/harness.mjs，当前 213/213
 
 # 校验发布文件清单
 npm run pack:check       # = npm pack --dry-run
 ```
+
+- 0.2.0 起组件交互测试渲染用 `react-test-renderer@^18.3.1`（devDependency）；安装时如遇 `EPERM`，把 npm 缓存指到工作区临时目录：`cmd /c npm.cmd install --save-dev react-test-renderer@^18.3.1 --cache <workspace-temp>\npm-cache --no-audit --no-fund`。
 
 - 本机 `git` 是 **MinGit 便携版**：`%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe`（未永久加入已运行进程的 PATH，命令里可临时前置）。
 - 本机 npm：`npm.cmd`（PowerShell 直接 `npm` 可能被执行策略拦 `npm.ps1`，用 `npm.cmd` 或 `cmd /c`）。
@@ -128,7 +135,7 @@ npm.cmd stage approve <stage-id>              # 触发网页 2FA（安全密钥�
 
 - 本机 `.npmrc` 里应配置一个 **stage-only granular token**（`//registry.npmjs.org/:_authToken=...`，权限 `Read and write (stage only)`）。
 - `stage approve` 若在非交互 shell 里报 `EOTP` 并打印 `https://www.npmjs.com/auth/cli/***`：需要保持 CLI 存活并在浏览器完成认证；本机曾用「伪造 TTY」（`--require fake-tty.cjs` 设 `process.stdin.isTTY=true`）让 npm 走 web-2FA 轮询，把真实 URL 交给主人在浏览器用安全密钥确认。
-- 之后 `npm.cmd view dsh-approval-reason-dock version` 应返回当前发布版本（0.1.2），`dist-tags` 的 `latest` 指向新版本。
+- 之后 `npm.cmd view dsh-approval-reason-dock version` 应返回当前发布版本（0.2.0），`dist-tags` 的 `latest` 指向新版本。
 
 ### 6.2 GitHub / Release
 
@@ -138,8 +145,8 @@ $git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
 & $git -C <repo working copy> add -A
 & $git -C <repo working copy> commit -m "feat: ..."
 & $git -C <repo working copy> push origin main
-& $git -C <repo working copy> tag -f v0.1.x <sha>
-& $git -C <repo working copy> push -f origin refs/tags/v0.1.x
+& $git -C <repo working copy> tag -f v0.2.0 <sha>
+& $git -C <repo working copy> push -f origin refs/tags/v0.2.0
 ```
 
 - Release 用 GitHub API 维护（`github_api` 工具）：`POST /releases`（草稿）→ 校验后 `PATCH /releases/{id}` `{draft:false}` 发布；改 tag 后若 Release 变回 draft，重新 PATCH 一次即可。
@@ -152,7 +159,8 @@ $git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
 - [ ] `npm stage list` 无残留
 - [ ] GitHub Release 非草稿、tag 指向最新提交
 - [ ] CI 绿
-- [ ] 本机真机冒烟（审批浮层 → 理由送达 → 允许/拒绝仍正常）
+- [ ] 本机真机冒烟（审批浮层 → 说明送达 → 允许二次确认/取消 → 允许/拒绝仍正常 → 投递失败阻塞）
+- [ ] 预览图两张为 0.2.0 新状态（输入态 + 确认视图）且已重新渲染
 - [ ] CHANGELOG 已写
 
 ## 七、本机安装 / 升级 / 回退
@@ -189,6 +197,8 @@ $git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
 | 多会话切换后草稿被清空 | 0.1.1 之前草稿是单一状态 | 0.1.1 起按审批 key 保存（`draftsByKey`），切会话不再互相清空 |
 | 窄窗口浮层遮住右上角按钮 | 面板位置过高 | 0.1.1 起 `top:112px`、宽 344px；仍不适配可再调 `surface`/`pillStyle` |
 | 浮层出现但点「拒绝并说明」后理由没送达 | `remote.session` 服务未注入 / `prompt` 参数错误 / turn 已结束 | 确认 `client.js` 的 `exports.inject` 含 `remote.session`；失败时会自动降级 queue；查看 `console.error("[approval-reason-dock] ...")` |
+| 点「允许」后确认视图出不来 / 「确认允许」点了没反应（确认视图卡住） | HMR 残留旧模块（0.1.x 旧 bundle 与 0.2.0 混跑）或组件视图状态异常 | 完整重启 DSH（不要只刷新）；DevTools Console 看 `slot entry crashed`；确认本机插件已更新到 0.2.0（`client.js` 含 `confirm-allow` 视图状态机） |
+| 点了「允许并说明 / 确认允许」后审批一直挂着，面板报「说明发送失败」 | 说明投递失败（steer 与 queue 都失败）→ 0.2.0 阻塞策略：**不回答审批**、保留面板与草稿 | 看错误提示码与 `console.error("[approval-reason-dock] ...")`；确认 `exports.inject` 含 `remote.session`；重试发送，或清空说明后点「允许一次」（空输入不投递消息、走原生放行） |
 | npm publish 403「Two-factor authentication…required」 | 用了普通 token 直接发布 | 改走 `npm stage publish` + `stage approve`（见 §6.1） |
 | `npm stage approve` 报 EOTP 且 URL 显示 `***` | 非交互 shell | 用 `--require fake-tty.cjs` 伪装 TTY 让 npm 走 web-2FA；或保持 CLI 存活，把 auth URL 给主人浏览器确认 |
 | `npm stage publish` E401 token invalid | token 被删/过期 | 重新生成 stage-only token 并 `npm config set` |
@@ -216,6 +226,7 @@ $git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
 | 2026-11-09 | 0.1.0 | GitHub 仓库 + CI + Release；npm 发布（staged publish + 网页 2FA approve） |
 | 2026-11-09 | 0.1.1 | 会话跟随（`uiSession.current`）、会话名、右上角位置、折叠/立即收起、按审批保存草稿、客户端激活修复（inject 服务名）、窄订阅；harness 104/104，DSH 0.2.2 真机多会话验证通过 |
 | 2026-11-10 | 0.1.2 | docs/市场素材同步版（无运行时代码变更）：tag 与 main 对齐、收录徽章、0.2.1 显式回退安装命令、中英文预览图与 screenshots.json 进入 tag；probe/scripts 移出发布分支 |
+| 2026-11-12 | 0.2.0 | 允许并说明（outcome `allowed-once`，前缀 `（审批同意说明）`，prompt 先于 answer）、允许前二次确认视图（风险说明 / 部分同意提示 / 取消 / Esc / Enter 不直接放行 / 防重复）、按钮文案随草稿切换、说明投递失败阻塞本次决定、说明上限 500；harness 213/213，DSH 0.2.2 真机验证由 Lead 执行；README / CHANGELOG / locale / MAINTENANCE / ALLOW-WITH-NOTE / 预览图同步 |
 
 ## 十一、参考
 

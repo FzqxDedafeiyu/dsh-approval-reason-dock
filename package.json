@@ -1,7 +1,7 @@
 {
   "name": "dsh-approval-reason-dock",
-  "version": "0.1.2",
-  "description": "Adds an optional rejection reason to DSH approval prompts via a non-invasive client overlay; the built-in approval card and DSH's security architecture stay untouched.",
+  "version": "0.2.0",
+  "description": "Adds an optional note to DSH approval prompts (allow or reject) and confirms every allow before it runs; the built-in approval card and DSH's security architecture stay untouched.",
   "type": "module",
   "license": "MIT",
   "main": "index.js",
@@ -49,7 +49,8 @@
   },
   "devDependencies": {
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-test-renderer": "^18.3.1"
   },
   "dsh": {
     "manifestVersion": 1,

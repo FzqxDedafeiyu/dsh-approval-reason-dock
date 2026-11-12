@@ -14,55 +14,75 @@ window.__ModuleLoader__.load({
 
 		const zh = {
 			title: "审批待处理",
-			hint: "留一句拒绝理由（可选，会立即进入当前对话）",
-			placeholder: "例如：网络不稳，先别把截图发出去；等我确认后再做。",
-			send: "拒绝并说明",
-			plain: "只拒绝",
+			hint: "留一句说明（可选，会立即进入当前对话）",
+			placeholder: "例如：只改 docs/ 下的文件；先 --dry-run 试一遍。",
+			allowPlain: "允许一次",
+			allowWithNote: "允许并说明",
+			rejectPlain: "拒绝",
+			rejectWithNote: "拒绝并说明",
+			allowPrefix: "（审批同意说明）",
+			reasonPrefix: "（审批拒绝理由）",
+			confirmTitle: "确认允许这次执行？",
+			confirmBody: "允许后会立即执行该工具调用。本插件只负责把补充说明送给模型，不会改变本次授权范围。",
+			partialAgreementHint: "部分同意或附条件放行，请点「拒绝并说明」。",
+			confirmNote: "将附上说明：{text}",
+			confirmAllow: "确认允许",
+			cancel: "取消",
+			sending: "正在把说明送进当前对话…",
+			deliveryFailed: "审批未提交：说明发送失败：{error}（可重试或清空后重试）",
 			close: "关闭",
 			collapse: "折叠",
 			expand: "展开",
 			pendingBadge: "待审核",
-			sending: "正在把理由送进当前对话…",
-			deliveredSteer: "已拒绝，理由已进入当前对话。",
-			deliveredQueue: "已拒绝，理由已排队，下一轮会看到。",
-			deliveryFailed: "已拒绝，但理由发送失败：{error}",
+			deliveredSteer: "已处理，说明已进入当前对话。",
+			deliveredQueue: "已处理，说明已排队，下一轮会看到。",
 			settled: "审批已被其他方式处理。",
-			handled: "已拒绝（未附理由）。",
+			handled: "已拒绝（未附说明）。",
 			handledTitle: "审批已处理",
 			tool: "工具：{tool}",
 			session: "会话：{title}",
-			reasonPrefix: "（审批拒绝理由）",
-			ariaInput: "审批拒绝理由（可选）",
-			ariaPanel: "审批拒绝理由浮层",
+			ariaInput: "审批说明（可选）",
+			ariaPanel: "审批说明浮层",
+			ariaConfirmPanel: "允许二次确认",
 		};
 
 		const en = {
 			title: "Approval pending",
-			hint: "Add a rejection reason (optional; it enters the running turn immediately)",
-			placeholder: "e.g. The network is unreliable, do not send the screenshot yet; wait for my confirmation.",
-			send: "Reject with reason",
-			plain: "Reject",
+			hint: "Add a note (optional; it enters the running turn immediately)",
+			placeholder: "e.g. Only change files under docs/; run --dry-run first.",
+			allowPlain: "Allow once",
+			allowWithNote: "Allow with note",
+			rejectPlain: "Reject",
+			rejectWithNote: "Reject with note",
+			allowPrefix: "(approval allow note) ",
+			reasonPrefix: "(approval rejection reason) ",
+			confirmTitle: "Allow this run?",
+			confirmBody: "Allowing runs this tool call immediately. The plugin only delivers your note to the model; it does not change the authorization scope.",
+			partialAgreementHint: "For partial or conditional approval, use \"Reject with note\".",
+			confirmNote: "Note to send: {text}",
+			confirmAllow: "Confirm allow",
+			cancel: "Cancel",
+			sending: "Sending the note into the running turn…",
+			deliveryFailed: "Approval not submitted: sending the note failed: {error} (retry or clear the note)",
 			close: "Close",
 			collapse: "Collapse",
 			expand: "Expand",
 			pendingBadge: "Pending review",
-			sending: "Sending the reason into the running turn…",
-			deliveredSteer: "Rejected; the reason entered the running turn.",
-			deliveredQueue: "Rejected; the reason is queued for the next turn.",
-			deliveryFailed: "Rejected, but sending the reason failed: {error}",
+			deliveredSteer: "Handled; the note entered the running turn.",
+			deliveredQueue: "Handled; the note is queued for the next turn.",
 			settled: "The approval was already handled elsewhere.",
-			handled: "Rejected (no reason).",
+			handled: "Rejected (no note).",
 			handledTitle: "Approval handled",
 			tool: "Tool: {tool}",
 			session: "Session: {title}",
-			reasonPrefix: "(approval rejection reason) ",
-			ariaInput: "Approval rejection reason (optional)",
-			ariaPanel: "Approval rejection reason panel",
+			ariaInput: "Approval note (optional)",
+			ariaPanel: "Approval note panel",
+			ariaConfirmPanel: "Allow confirmation",
 		};
 
 		/* --------------------------------------------------------- helpers */
 
-		/** Collapse whitespace, trim, and cap a user-typed reason. */
+		/** Collapse whitespace, trim, and cap a user-typed note. */
 		function normalizeReason(value) {
 			if (typeof value !== "string") return "";
 			return value.replace(/\s+/g, " ").trim().slice(0, MAX_REASON_CHARS);
@@ -97,7 +117,7 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * Send one rejection reason into the running session.
+		 * Send one note (allow or reject flavour) into the running session.
 		 * Steer first so the model reads it in the next step of the current turn;
 		 * fall back to a queued message when the turn no longer accepts steering.
 		 * @returns {Promise<{mode: "steer" | "queue" | "failed", error?: string}>}
@@ -213,22 +233,37 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * Answer one approval as rejected, optionally carrying a reason first.
-		 * This is the whole interaction flow, kept outside React so tests can
-		 * drive it without a browser.
+		 * Deliver the optional note, then answer one approval with `outcome`.
+		 * Prompt-before-answer is a hard ordering requirement: the model should
+		 * read the note in this turn before the tool call is let through. A failed
+		 * delivery blocks the answer on purpose (no note, no authorization) so the
+		 * user can retry from the still-open panel.
 		 * @returns {Promise<{answered: boolean, delivery?: {mode: string, error?: string}}>}
 		 */
-		async function rejectApproval(target, remote, prefix, reason) {
+		async function answerApproval(target, remote, prefix, reason, outcome) {
 			let delivery;
-			if (reason !== "") delivery = await deliverReason(remote, target.sessionId, prefix, reason);
+			if (reason !== "") {
+				delivery = await deliverReason(remote, target.sessionId, prefix, reason);
+				if (delivery.mode === "failed") return { answered: false, delivery };
+			}
 			let answered = false;
 			try {
-				await target.pending.answer("rejected");
+				await target.pending.answer(outcome);
 				answered = true;
 			} catch {
 				answered = false;
 			}
 			return delivery === undefined ? { answered } : { answered, delivery };
+		}
+
+		/** Answer one approval as rejected, optionally carrying a reason first. */
+		async function rejectApproval(target, remote, prefix, reason) {
+			return answerApproval(target, remote, prefix, reason, "rejected");
+		}
+
+		/** Answer one approval as allowed once, optionally carrying a note first. */
+		async function allowApproval(target, remote, prefix, reason) {
+			return answerApproval(target, remote, prefix, reason, "allowed-once");
 		}
 
 		/* ------------------------------------------------------------ theme */
@@ -298,6 +333,13 @@ window.__ModuleLoader__.load({
 			color: "var(--dsw-alias-label-secondary, #b9b9b9)",
 			border: "1px solid var(--dsw-alias-border-l2, #3a3a3a)",
 		};
+		// Confirming an allow is the risky step: warn/danger fill, deep label.
+		const confirmButton = {
+			...buttonBase,
+			background: "var(--dsw-alias-state-warn-primary, #e0a45e)",
+			color: "var(--dsw-alias-label-primary-foreground, #141414)",
+			fontWeight: 600,
+		};
 		const noticeTone = {
 			ok: { color: "var(--dsw-alias-state-success-primary, #4ec9a0)" },
 			warn: { color: "var(--dsw-alias-state-warn-label, #e0a45e)" },
@@ -342,12 +384,27 @@ window.__ModuleLoader__.load({
 			color: "var(--dsw-alias-label-tertiary, #8a8a8a)",
 			fontSize: 12,
 		};
+		const confirmTitleStyle = { marginBottom: 6, fontWeight: 600, color: "var(--dsw-alias-label-primary, #e8e8e8)" };
+		const confirmBodyStyle = { marginBottom: 8, color: "var(--dsw-alias-label-secondary, #b9b9b9)", fontSize: 12 };
+		const warnHintStyle = { marginBottom: 8, color: "var(--dsw-alias-state-warn-label, #e0a45e)", fontSize: 12 };
+		const confirmNoteStyle = {
+			marginBottom: 8,
+			padding: "6px 8px",
+			borderRadius: "var(--dsw-radius-md, 9px)",
+			background: "var(--dsw-specific-input-major, #10141a)",
+			color: "var(--dsw-alias-label-secondary, #b9b9b9)",
+			fontSize: 12,
+			whiteSpace: "pre-wrap",
+			overflowWrap: "anywhere",
+		};
 
 		/* -------------------------------------------------------- component */
 
 		/**
 		 * Frame-wide panel: while one answerable approval exists, offer an
-		 * optional rejection reason and two rejection buttons.
+		 * optional note plus allow/reject actions. "Allow" first opens an inline
+		 * confirmation view (the tool runs immediately after an allow) whose Esc
+		 * cancels and whose Enter does nothing.
 		 * @param props - slot props: session status hook, locale seat, remote service.
 		 * @returns the panel, a result notice, or null.
 		 */
@@ -372,17 +429,22 @@ window.__ModuleLoader__.load({
 			const sessionTitle = useSessionsMaybe((value) => (approval === undefined ? undefined : sessionTitleOf(value, approval.sessionId)));
 			const seenKey = React.useRef(undefined);
 			const lastTarget = React.useRef(undefined);
+			// Synchronous duplicate-submit guard: `busy` only becomes true after a
+			// re-render, so two clicks in the same tick could both pass a state check.
+			const submittingRef = React.useRef(false);
 			const [draft, setDraft] = React.useState("");
 			const [busy, setBusy] = React.useState(false);
 			const [notice, setNotice] = React.useState(null);
 			const [collapsed, setCollapsed] = React.useState(false);
+			const [view, setView] = React.useState("input");
 
 			React.useEffect(() => {
-				// Switching sessions resets transient notices and the stale answer
-				// target, but keeps the typed draft: returning to the same pending
-				// approval should restore the panel with its text intact.
+				// Switching sessions resets the transient notice and the stale
+				// answer target, and returns to the input view; the typed draft is
+				// kept per approval key so switching back restores it.
 				lastTarget.current = undefined;
 				setNotice(null);
+				setView("input");
 			}, [currentSessionId]);
 
 			React.useEffect(() => {
@@ -392,38 +454,76 @@ window.__ModuleLoader__.load({
 				seenKey.current = approval.key;
 				setDraft(recallDraft(approval.key));
 				setNotice(null);
+				setView("input");
 				setCollapsed(false);
 			}, [approval]);
 
 			const dismiss = React.useCallback(() => setNotice(null), []);
 
+			const cancelConfirm = React.useCallback(() => setView("input"), []);
+
 			const submit = React.useCallback(
-				async (withReason) => {
-					if (busy) return;
+				async (outcome, withNote) => {
+					if (busy || submittingRef.current) return;
 					const target = approval === undefined ? lastTarget.current : approval;
 					if (target === undefined) return;
+					submittingRef.current = true;
 					setBusy(true);
-					const reason = withReason ? normalizeReason(draft) : "";
-					const outcome = await rejectApproval(target, remote, t("reasonPrefix"), reason);
+					const reason = withNote ? normalizeReason(draft) : "";
+					const prefix = outcome === "allowed-once" ? t("allowPrefix") : t("reasonPrefix");
+					let result;
+					try {
+						result = await answerApproval(target, remote, prefix, reason, outcome);
+					} catch {
+						result = { answered: false };
+					}
+					submittingRef.current = false;
 					setBusy(false);
+					if (result.answered !== true) {
+						// Delivery failed: the approval is still pending and the note is
+						// kept, so the user can retry from the input view. An approval
+						// handled elsewhere has nothing left to retry: clear the draft.
+						if (result.delivery !== undefined && result.delivery.mode === "failed") {
+							setView("input");
+							setNotice({ kind: "error", text: t("deliveryFailed", { error: result.delivery.error }) });
+							return;
+						}
+						lastTarget.current = undefined;
+						rememberDraft(target.key, "");
+						setDraft("");
+						setNotice(null);
+						setView("input");
+						return;
+					}
+					// Answered: clear the draft and drop the panel with the approval.
 					lastTarget.current = undefined;
 					rememberDraft(target.key, "");
 					setDraft("");
-					// Success (with or without a reason) closes the panel immediately;
-					// only a failed reason delivery keeps a dismissible error notice.
-					if (outcome.answered !== true) {
-						setNotice(null);
-						return;
-					}
-					if (outcome.delivery !== undefined && outcome.delivery.mode === "failed") {
-						setNotice({ kind: "error", text: t("deliveryFailed", { error: outcome.delivery.error }) });
-						return;
-					}
-					setCollapsed(false);
 					setNotice(null);
+					setView("input");
+					setCollapsed(false);
 				},
 				[approval, busy, draft, remote, t],
 			);
+
+			// Confirmation view keyboard rules: Esc cancels (never allows), Enter
+			// is swallowed so it cannot trigger the allow button.
+			React.useEffect(() => {
+				if (view !== "confirm-allow") return undefined;
+				if (typeof globalThis.addEventListener !== "function") return undefined;
+				const onKeyDown = (event) => {
+					if (event.key === "Escape") {
+						event.preventDefault();
+						cancelConfirm();
+					} else if (event.key === "Enter") {
+						event.preventDefault();
+					}
+				};
+				globalThis.addEventListener("keydown", onKeyDown);
+				return () => {
+					if (typeof globalThis.removeEventListener === "function") globalThis.removeEventListener("keydown", onKeyDown);
+				};
+			}, [view, cancelConfirm]);
 
 			if (approval === undefined) {
 				if (notice === null) return null;
@@ -451,28 +551,66 @@ window.__ModuleLoader__.load({
 				);
 			}
 
+			const header = h(
+				"div",
+				{ style: headRow },
+				h("span", { style: dotStyle, "aria-hidden": true }),
+				h("span", { style: titleStyle }, t("title")),
+				toolName !== "" ? h("span", { style: toolStyle, title: toolName }, t("tool", { tool: toolName })) : null,
+				h(
+					"button",
+					{
+						type: "button",
+						style: collapseButton,
+						title: t("collapse"),
+						"aria-label": t("collapse"),
+						onClick: () => setCollapsed(true),
+					},
+					"–",
+				),
+			);
+			const sessionRow =
+				sessionTitle === undefined ? null : h("div", { style: sessionStyle }, t("session", { title: sessionTitle }));
+
+			if (view === "confirm-allow") {
+				return h(
+					"div",
+					{ style: surface, role: "dialog", "aria-label": t("ariaConfirmPanel") },
+					header,
+					sessionRow,
+					h("div", { style: confirmTitleStyle }, t("confirmTitle")),
+					h("div", { style: confirmBodyStyle }, t("confirmBody")),
+					busy ? h("div", { style: hintStyle }, t("sending")) : null,
+					h("div", { style: warnHintStyle }, t("partialAgreementHint")),
+					draft === ""
+						? null
+						: h("div", { style: confirmNoteStyle }, t("confirmNote", { text: normalizeReason(draft) })),
+					h(
+						"div",
+						{ style: actionsRow },
+						h(
+							"button",
+							{
+								type: "button",
+								style: confirmButton,
+								disabled: busy,
+								onClick: () => void submit("allowed-once", draft !== ""),
+							},
+							t("confirmAllow"),
+						),
+						h("button", { type: "button", style: ghostButton, disabled: busy, onClick: cancelConfirm }, t("cancel")),
+					),
+				);
+			}
+
 			return h(
 				"div",
 				{ style: surface, role: "dialog", "aria-label": t("ariaPanel") },
-				h(
-					"div",
-					{ style: headRow },
-					h("span", { style: dotStyle, "aria-hidden": true }),
-					h("span", { style: titleStyle }, t("title")),
-					toolName !== "" ? h("span", { style: toolStyle, title: toolName }, t("tool", { tool: toolName })) : null,
-					h(
-						"button",
-						{
-							type: "button",
-							style: collapseButton,
-							title: t("collapse"),
-							"aria-label": t("collapse"),
-							onClick: () => setCollapsed(true),
-						},
-						"–",
-					),
-				),
-				sessionTitle === undefined ? null : h("div", { style: sessionStyle }, t("session", { title: sessionTitle })),
+				header,
+				sessionRow,
+				// A failed note delivery keeps the approval open, so its error has
+				// to be visible inside the panel next to the draft it must retry.
+				notice === null ? null : noticeRow(t, notice, dismiss),
 				h("div", { style: hintStyle }, busy ? t("sending") : t("hint")),
 				h("textarea", {
 					style: inputStyle,
@@ -486,17 +624,39 @@ window.__ModuleLoader__.load({
 						rememberDraft(approval.key, next);
 					},
 					onKeyDown: (event) => {
+						// Enter without Shift keeps the safe direction: reject with note.
 						if (event.key === "Enter" && event.shiftKey !== true) {
 							event.preventDefault();
-							void submit(true);
+							void submit("rejected", true);
 						}
 					},
 				}),
 				h(
 					"div",
 					{ style: actionsRow },
-					h("button", { type: "button", style: primaryButton, disabled: busy, onClick: () => void submit(true) }, t("send")),
-					h("button", { type: "button", style: ghostButton, disabled: busy, onClick: () => void submit(false) }, t("plain")),
+					h(
+						"button",
+						{
+							type: "button",
+							style: primaryButton,
+							disabled: busy,
+							onClick: () => {
+								if (busy) return;
+								setView("confirm-allow");
+							},
+						},
+						draft !== "" ? t("allowWithNote") : t("allowPlain"),
+					),
+					h(
+						"button",
+						{
+							type: "button",
+							style: ghostButton,
+							disabled: busy,
+							onClick: () => void submit("rejected", draft !== ""),
+						},
+						draft !== "" ? t("rejectWithNote") : t("rejectPlain"),
+					),
 				),
 			);
 		}
@@ -549,6 +709,8 @@ window.__ModuleLoader__.load({
 			deliverReason,
 			firstApproval,
 			approvalFromStatus,
+			answerApproval,
+			allowApproval,
 			rejectApproval,
 			sessionTitleOf,
 			recallDraft,
