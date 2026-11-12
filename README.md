@@ -11,7 +11,7 @@ An additive web-client plugin for [DeepSeek Harness](https://github.com/deepseek
 
 ## Preview
 
-![Approval note panel over the built-in approval card, with the allow confirmation view](https://raw.githubusercontent.com/FzqxDedafeiyu/dsh-approval-reason-dock/main/docs/preview.png?v=0.2.0)
+![Approval note panel (input state and allow confirmation view) and the plugin's Settings section](https://raw.githubusercontent.com/FzqxDedafeiyu/dsh-approval-reason-dock/main/docs/preview.png?v=0.2.0)
 
 ## Why
 
@@ -39,6 +39,37 @@ This plugin adds a small frame-wide panel on top of the host UI. It does **not**
 - **Reject with note** skips the confirmation view (the note is the confirmation): `` (approval rejection reason) <text> `` is sent first (steer → queue fallback), then the approval is answered as `rejected`.
 - **A note delivery failure blocks the decision.** If the note cannot be delivered, the approval is **not** answered: the panel stays open with a dismissible error, the draft is kept, and retrying re-sends the note. Nothing is allowed (or rejected) without its note.
 - A successful allow or reject closes the panel immediately and clears that approval's draft.
+- Both allow behaviors — carrying a note and the confirmation step — follow the plugin's two [Settings](#settings) switches; **Reject with note** is always available and is not affected by them.
+
+## Settings
+
+The plugin registers a **Settings → Approval Note Dock** section with two switches. Both are stored in the current browser (`localStorage`) and only change the **allow** path — **Reject with note always works and is not affected by these switches**.
+
+### Allow with note
+
+Default: **on**.
+
+- On: allows can carry a note. With a typed draft the buttons read *Allow with note* / *Reject with note*, and the note is delivered into the running turn (steer → queue) before the approval is answered.
+- Off: allows carry no note; even with a typed draft the allow button stays *Allow once* and the draft is not sent. The model only sees a native allow — use *Reject with note* when you need conditions.
+
+Risks:
+
+- On: the note becomes a normal user message in the session log and model context; if it cannot be delivered, the approval is not answered (retryable).
+- Off: allows carry no conditions — the model only sees a native allow; use "Reject with note" instead.
+
+### Allow confirmation
+
+Default: **on**.
+
+- On: clicking allow first opens the in-panel confirmation view (cancelable); the tool call runs only after *Confirm allow*.
+- Off: clicking allow runs the tool call immediately; the confirmation step is skipped.
+
+Risks:
+
+- On: one extra step per allow; frequent approvals feel slower.
+- Off: clicking allow runs the tool call immediately; no second line of defense against misclicks.
+
+Both default to on; stored in this browser (clearing site data restores the defaults).
 
 ## Non-invasive by design
 
@@ -130,7 +161,7 @@ Remove the `dsh-approval-reason-dock` entry from `dsh.profile.bundles` (or use P
 node test/harness.mjs
 ```
 
-`node test/harness.mjs` runs 213 checks: it verifies the manifest/packaging shape, loads the real `client.js` factory, and drives the approval flows against a fake React/Cordis/slot environment — allow/reject with and without notes, note delivery before the answer, the steer→queue fallback, the allow confirmation view (cancel, `Esc`, `Enter`, repeated clicks), the delivery-failure blocking path, already-settled approvals, and the i18n/panel rendering. Component interactions render through `react-test-renderer` (dev-only). `npm run pack:check` verifies the published file list.
+`node test/harness.mjs` runs 309 checks: it verifies the manifest/packaging shape, loads the real `client.js` factory, and drives the approval flows against a fake React/Cordis/slot environment — allow/reject with and without notes, note delivery before the answer, the steer→queue fallback, the allow confirmation view (cancel, `Esc`, `Enter`, repeated clicks), the delivery-failure blocking path, the settings store and settings section (defaults, persistence, toggles), the allow behavior matrix under both switches, already-settled approvals, and the i18n/panel rendering. Component interactions render through `react-test-renderer` (dev-only). `npm run pack:check` verifies the published file list.
 
 Repository layout:
 

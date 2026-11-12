@@ -8,14 +8,14 @@
 | 项 | 内容 |
 |---|---|
 | 名称 | `dsh-approval-reason-dock` |
-| 定位 | DeepSeek Harness Web 客户端的**新增层**插件：审批卡出现时提供可选的「说明」——拒绝时是理由、允许时是附言；说明先作为 steering 用户消息进入当前对话，再把审批答成 `rejected` / `allowed-once`；允许前还有一次面板内二次确认 |
-| 边界 | **不替换**内置审批卡、**不改**审批协议/审计事件、不动 `app.asar`；插件只负责送说明、**不改变授权范围**；渲染失败时静默隐藏，内置卡照常工作（fail-soft） |
-| 技术栈 | 纯 JavaScript（无构建链）· `shell.overlay` 槽 · React · `--dsw-*` 主题 token · zh/en locale |
+| 定位 | DeepSeek Harness Web 客户端的**新增层**插件：审批卡出现时提供可选的「说明」——拒绝时是理由、允许时是附言；说明先作为 steering 用户消息进入当前对话，再把审批答成 `rejected` / `allowed-once`；允许前还有一次面板内二次确认；设置页提供两个开关（允许时带话 / 允许二次确认，默认都开启） |
+| 边界 | **不替换**内置审批卡、**不改**审批协议/审计事件、不动 `app.asar`；插件只负责送说明、**不改变授权范围**；渲染失败时静默隐藏，内置卡照常工作（fail-soft）；拒绝带理由始终可用、不受设置开关影响 |
+| 技术栈 | 纯 JavaScript（无构建链）· `shell.overlay` + `settings.section` 槽 · React · `--dsw-*` 主题 token · zh/en locale · localStorage 设置持久化 |
 | 兼容 | `engines.dsh: >=0.2.2-rc.1 <0.3.0`；**版本匹配**：DSH `0.2.1-rc.2` ↔ 插件 `0.1.0`（已验证稳定），DSH `0.2.2-rc.1` ↔ 插件 `0.1.1` / `0.1.2`（已验证），DSH `0.2.2` 线 ↔ 插件 `0.2.0`（允许并说明 + 允许二次确认） |
 
 ### 为什么要做
 
-Harness 审批结果只有封闭枚举（`allowed-once / rejected / cancelled / unavailable`），拒绝时没有理由通道；模型只能收到「the user rejected tool X」。允许时同样没地方带交代（「只改 docs/ 下的文件」「先 --dry-run 试一遍」），而放行本身会立即执行、更需要一次确认。本插件在 UI 层补一个说明输入：用 `remote.session.prompt` 把说明以 `mode: "steer"` 送进当前轮（不可用时降级 `queue`），说明送达后才回答审批（`rejected` / `allowed-once`）；允许前先进入面板内二次确认（风险说明 + 部分同意提示），说明投递失败则阻塞本次决定。
+Harness 审批结果只有封闭枚举（`allowed-once / rejected / cancelled / unavailable`），拒绝时没有理由通道；模型只能收到「the user rejected tool X」。允许时同样没地方带交代（「只改 docs/ 下的文件」「先 --dry-run 试一遍」），而放行本身会立即执行、更需要一次确认。本插件在 UI 层补一个说明输入：用 `remote.session.prompt` 把说明以 `mode: "steer"` 送进当前轮（不可用时降级 `queue`），说明送达后才回答审批（`rejected` / `allowed-once`）；允许前先进入面板内二次确认（风险说明 + 部分同意提示），说明投递失败则阻塞本次决定。设置页里两个开关（默认开启）可分别关闭「允许时带话」与「允许二次确认」，拒绝带理由不受影响。
 
 ## 二、产物与链接
 
@@ -72,7 +72,11 @@ test/harness.mjs        # 沙箱测试（manifest/打包/逻辑/SSR 渲染/槽�
 | 文案 | `ctx.locale.register("approval-reason-dock", { zh, en })` + 槽 `locale: NS` 提供的 `t` 席位 |
 | 样式 | 全部 inline style + `var(--dsw-* , fallback)` 主题 token；`position:fixed; right:24px; top:112px; width:344px`（右上角，避开内置审批卡与标题按钮）；不写 `document.body`、不依赖 primitives |
 | 生命周期 | 全部注册在 `ctx.effect` 内并返回清理；React 组件内状态随卸载清理 |
-| 测试钩子 | `exports.__internals` 暴露纯逻辑（normalizeReason / errorText / deliverReason / firstApproval / approvalFromStatus / rejectApproval / answerApproval / allowApproval / sessionTitleOf / recallDraft / rememberDraft）供 harness 使用 |
+| 测试钩子 | `exports.__internals` 暴露纯逻辑与设置 store：normalizeReason / errorText / deliverReason / firstApproval / approvalFromStatus / rejectApproval / answerApproval / allowApproval / sessionTitleOf / recallDraft / rememberDraft / SETTINGS_KEY / DEFAULT_SETTINGS / getSettings / updateSettings / subscribe / readStoredSettings / syncSettingsFromStorage / handleStorageEvent / SettingsSection / settingsNavLabel 供 harness 使用 |
+| 设置区注册 | `ctx.slots.inject("settings.section", () => ctx.slots.register({ name:"settings.section", id: NS, order: 60, label: () => <本地化 settingsNav>, locale: NS, inject: () => ({}) }, SettingsSection))`；`label` 用 `ctx.locale.bind(NS)`（bind 不存在时回落 key 名） |
+| 设置存储 | localStorage key `dsh-approval-reason-dock:settings`，值 `{"allowNote":true,"confirmAllow":true}`（默认两项 `true`，升级用户无感）；读取时缺失 / 非法 JSON / 字段非 boolean → 回落默认，额外字段忽略。模块内 store：`getSettings()` / `updateSettings(patch)` / `subscribe(listener)`，更新即写 localStorage 并通知订阅者；写入失败（隐私模式等）只影响持久化、内存值仍生效。所有 localStorage 访问都有 `typeof globalThis.localStorage` 守卫，并监听 `globalThis.addEventListener("storage")` 同步其它窗口变更 |
+| 设置 UI | `SettingsSection`：标题 settingsTitle + 说明 settingsIntro；两行开关（label、desc、原生 checkbox + 风险块同时展示 RiskOn / RiskOff 两行）；底部 settingsDefaultNote；checkbox 用 `accentColor: var(--dsw-alias-state-warn-primary, #e0a45e)`，aria-label 用 `settingsToggleAria`；宽度自适应设置页 |
+| 行为矩阵 | 设 `allowNote` / `confirmAllow`（默认 true/true）：允许按钮文案 `allowNote && 草稿非空` → `allowWithNote`，否则 `allowPlain`；点允许时 `confirmAllow === true` → 进确认视图（确认后 `submit("allowed-once", allowNote && 草稿非空)`），`false` → 直接 `submit`（无确认视图）；确认视图里的说明预览仅当 `allowNote && 草稿非空`，`allowNote === false` 时显示 `allowNoteDisabledHint`（warn 色）；拒绝按钮/拒绝流程/空输入原生行为完全不受开关影响；`view === "confirm-allow"` 时若 `confirmAllow` 被关闭，effect 自动回 `input`；浮层订阅 settings store，设置变更后下一次渲染生效 |
 
 ### 依赖的 DSH 内部接口（升级风险点）
 
@@ -108,7 +112,7 @@ cd <repo working copy>
 npm install
 
 # 跑沙箱测试（不接触运行中的 DSH）
-npm test                 # = node test/harness.mjs，当前 213/213
+npm test                 # = node test/harness.mjs，当前 309/309
 
 # 校验发布文件清单
 npm run pack:check       # = npm pack --dry-run
@@ -200,6 +204,8 @@ $git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
 | 浮层出现但点「拒绝并说明」后理由没送达 | `remote.session` 服务未注入 / `prompt` 参数错误 / turn 已结束 | 确认 `client.js` 的 `exports.inject` 含 `remote.session`；失败时会自动降级 queue；查看 `console.error("[approval-reason-dock] ...")` |
 | 点「允许」后确认视图出不来 / 「确认允许」点了没反应（确认视图卡住） | HMR 残留旧模块（0.1.x 旧 bundle 与 0.2.0 混跑）或组件视图状态异常 | 完整重启 DSH（不要只刷新）；DevTools Console 看 `slot entry crashed`；确认本机插件已更新到 0.2.0（`client.js` 含 `confirm-allow` 视图状态机） |
 | 点了「允许并说明 / 确认允许」后审批一直挂着，面板报「说明发送失败」 | 说明投递失败（steer 与 queue 都失败）→ 0.2.0 阻塞策略：**不回答审批**、保留面板与草稿 | 看错误提示码与 `console.error("[approval-reason-dock] ...")`；确认 `exports.inject` 含 `remote.session`；重试发送，或清空说明后点「允许一次」（空输入不投递消息、走原生放行） |
+| 设置里找不到「审批说明浮层」一节 / 设置开关不生效 | 插件未加载、未完整重启、`settings.section` 槽注册失败或旧 bundle 缓存；勾选后浮层未按预期变化 | 确认插件已启用并**完整重启** DSH（刷新页面不够）；DevTools 看 `slot entry crashed in 'settings.section'`；勾选原生 checkbox 后确认浮层按钮文案/确认视图立即跟随；仍不生效则清掉 localStorage 后刷新 |
+| 想把两个设置开关恢复默认（都开启） | 设置持久化在 localStorage | DevTools → Application → Local Storage 删除 key `dsh-approval-reason-dock:settings` 后刷新页面；或手动把两个开关都勾上（默认即开启） |
 | npm publish 403「Two-factor authentication…required」 | 用了普通 token 直接发布 | 改走 `npm stage publish` + `stage approve`（见 §6.1） |
 | `npm stage approve` 报 EOTP 且 URL 显示 `***` | 非交互 shell | 用 `--require fake-tty.cjs` 伪装 TTY 让 npm 走 web-2FA；或保持 CLI 存活，把 auth URL 给主人浏览器确认 |
 | `npm stage publish` E401 token invalid | token 被删/过期 | 重新生成 stage-only token 并 `npm config set` |
@@ -227,7 +233,7 @@ $git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
 | 2026-11-09 | 0.1.0 | GitHub 仓库 + CI + Release；npm 发布（staged publish + 网页 2FA approve） |
 | 2026-11-09 | 0.1.1 | 会话跟随（`uiSession.current`）、会话名、右上角位置、折叠/立即收起、按审批保存草稿、客户端激活修复（inject 服务名）、窄订阅；harness 104/104，DSH 0.2.2 真机多会话验证通过 |
 | 2026-11-10 | 0.1.2 | docs/市场素材同步版（无运行时代码变更）：tag 与 main 对齐、收录徽章、0.2.1 显式回退安装命令、中英文预览图与 screenshots.json 进入 tag；probe/scripts 移出发布分支 |
-| 2026-11-12 | 0.2.0 | 允许并说明（outcome `allowed-once`，前缀 `（审批同意说明）`，prompt 先于 answer）、允许前二次确认视图（风险说明 / 部分同意提示 / 取消 / Esc / Enter 不直接放行 / 防重复）、按钮文案随草稿切换、说明投递失败阻塞本次决定、说明上限 500；harness 213/213；DSH 0.2.2 真机六轮验证通过（允许并说明+取消/Esc/切会话、原生拒绝、拒绝并说明、原生允许、折叠+双会话同时挂审批、失败路径临时故障构建），会话事件日志核对 `asked→说明→decided→tool/result` 顺序与 outcome 均正确；README / CHANGELOG / locale / MAINTENANCE / ALLOW-WITH-NOTE / 预览图同步 |
+| 2026-11-12 | 0.2.0 | 允许并说明（outcome `allowed-once`，前缀 `（审批同意说明）`，prompt 先于 answer）、允许前二次确认视图（风险说明 / 部分同意提示 / 取消 / Esc / Enter 不直接放行 / 防重复）、按钮文案随草稿切换、说明投递失败阻塞本次决定、说明上限 500、设置页控制面板（`settings.section` 两个开关、localStorage 持久化、行为矩阵，默认都开启；控制面板真机验证待 Lead 追加）；harness 309/309；DSH 0.2.2 真机六轮验证通过（允许并说明+取消/Esc/切会话、原生拒绝、拒绝并说明、原生允许、折叠+双会话同时挂审批、失败路径临时故障构建），会话事件日志核对 `asked→说明→decided→tool/result` 顺序与 outcome 均正确；README / CHANGELOG / locale / MAINTENANCE / ALLOW-WITH-NOTE / 预览图同步 |
 
 ## 十一、参考
 

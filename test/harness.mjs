@@ -159,6 +159,21 @@ const expectedKeys = [
   "ariaInput",
   "ariaPanel",
   "ariaConfirmPanel",
+  // 0.2.0 settings section
+  "settingsNav",
+  "settingsTitle",
+  "settingsIntro",
+  "allowNoteLabel",
+  "allowNoteDesc",
+  "allowNoteRiskOn",
+  "allowNoteRiskOff",
+  "confirmAllowLabel",
+  "confirmAllowDesc",
+  "confirmAllowRiskOn",
+  "confirmAllowRiskOff",
+  "settingsDefaultNote",
+  "allowNoteDisabledHint",
+  "settingsToggleAria",
 ];
 equal("zh dictionary uses the 0.2.0 key set", Object.keys(internals.zh).sort(), [...expectedKeys].sort());
 equal("en dictionary uses the 0.2.0 key set", Object.keys(internals.en).sort(), [...expectedKeys].sort());
@@ -167,6 +182,17 @@ check("en allow/reason prefixes keep the trailing space", internals.en.allowPref
 check("allowPrefix marks the allow note", internals.zh.allowPrefix === "（审批同意说明）");
 check("confirm copy preserves the authorization scope", internals.zh.confirmBody.includes("不会改变本次授权范围"));
 check("partialAgreementHint points at reject with note", internals.zh.partialAgreementHint.includes("拒绝并说明"));
+check(
+  "settings dictionaries carry both risk directions",
+  ["allowNoteRiskOn", "allowNoteRiskOff", "confirmAllowRiskOn", "confirmAllowRiskOff"].every(
+    (key) => typeof internals.zh[key] === "string" && typeof internals.en[key] === "string",
+  ),
+);
+check("settings intro says reject is unaffected", internals.zh.settingsIntro.includes("拒绝带理由始终可用") && internals.en.settingsIntro.includes("Reject with a note always works"));
+check("note-disabled hint names the switch", internals.zh.allowNoteDisabledHint.includes("允许时带话") && internals.en.allowNoteDisabledHint.includes("Allow with note"));
+check("toggle aria template carries the name placeholder", internals.zh.settingsToggleAria.includes("{name}") && internals.en.settingsToggleAria.includes("{name}"));
+check("settings defaults keep both features on", internals.DEFAULT_SETTINGS.allowNote === true && internals.DEFAULT_SETTINGS.confirmAllow === true);
+check("settings key is namespaced", internals.SETTINGS_KEY === "dsh-approval-reason-dock:settings");
 
 /* -------------------------------------------------------------- helpers */
 
@@ -765,6 +791,312 @@ function typeNote(renderer, value) {
   check("switching back restores the input view", !textOf(renderer).includes("确认允许这次执行？"));
 }
 
+/* ------------------------------------------------------- settings store */
+
+console.log("settings store");
+
+function fakeStorage() {
+  const map = new Map();
+  return {
+    map,
+    getItem(key) {
+      return map.has(key) ? map.get(key) : null;
+    },
+    setItem(key, value) {
+      map.set(key, String(value));
+    },
+    removeItem(key) {
+      map.delete(key);
+    },
+  };
+}
+
+/** Change settings from a test without tripping act() warnings. */
+function setSettings(patch) {
+  act(() => {
+    internals.updateSettings(patch);
+  });
+}
+
+{
+  const scriptedStorage = fakeStorage();
+  const originalLocalStorage = globalThis.localStorage;
+  let storageInstalled = false;
+  try {
+    equal("settings default to on/on", internals.getSettings(), { allowNote: true, confirmAllow: true });
+    equal("reading settings without localStorage returns defaults", internals.readStoredSettings(), { allowNote: true, confirmAllow: true });
+
+    globalThis.localStorage = scriptedStorage;
+    storageInstalled = true;
+    equal("missing stored settings fall back to defaults", internals.readStoredSettings(), { allowNote: true, confirmAllow: true });
+
+    scriptedStorage.map.set(internals.SETTINGS_KEY, "{not json");
+    equal("malformed JSON falls back to defaults", internals.readStoredSettings(), { allowNote: true, confirmAllow: true });
+
+    scriptedStorage.map.set(internals.SETTINGS_KEY, "[]");
+    equal("non-object JSON falls back to defaults", internals.readStoredSettings(), { allowNote: true, confirmAllow: true });
+
+    scriptedStorage.map.set(internals.SETTINGS_KEY, '{"allowNote":"yes","confirmAllow":0}');
+    equal("non-boolean fields fall back to defaults", internals.readStoredSettings(), { allowNote: true, confirmAllow: true });
+
+    scriptedStorage.map.set(internals.SETTINGS_KEY, '{"allowNote":false,"extra":1}');
+    equal("partial stored settings merge with defaults and ignore extras", internals.readStoredSettings(), { allowNote: false, confirmAllow: true });
+
+    scriptedStorage.map.set(internals.SETTINGS_KEY, '{"allowNote":true,"confirmAllow":true}');
+    equal("updateSettings patches one field", internals.updateSettings({ allowNote: false }), { allowNote: false, confirmAllow: true });
+    equal("updateSettings keeps the new memory value", internals.getSettings(), { allowNote: false, confirmAllow: true });
+    equal("updateSettings persists to localStorage", JSON.parse(scriptedStorage.map.get(internals.SETTINGS_KEY)), {
+      allowNote: false,
+      confirmAllow: true,
+    });
+
+    let notified = 0;
+    const unsubscribe = internals.subscribe(() => {
+      notified += 1;
+    });
+    internals.updateSettings({ confirmAllow: false });
+    equal("subscribers are notified on update", notified, 1);
+    unsubscribe();
+    internals.updateSettings({ confirmAllow: true });
+    equal("unsubscribed listeners stop being notified", notified, 1);
+
+    scriptedStorage.map.set(internals.SETTINGS_KEY, '{"allowNote":false,"confirmAllow":false}');
+    let synced = 0;
+    const unsubscribeSync = internals.subscribe(() => {
+      synced += 1;
+    });
+    const beforeOtherKey = internals.getSettings();
+    const afterOtherKey = internals.handleStorageEvent({ key: "some-other-key" });
+    check("storage events for other keys are ignored", afterOtherKey === beforeOtherKey && synced === 0);
+    internals.handleStorageEvent({ key: internals.SETTINGS_KEY });
+    equal("storage event syncs settings from localStorage", internals.getSettings(), { allowNote: false, confirmAllow: false });
+    equal("storage event notifies subscribers once", synced, 1);
+    internals.handleStorageEvent({ key: internals.SETTINGS_KEY });
+    equal("unchanged storage data does not re-notify", synced, 1);
+    unsubscribeSync();
+
+    globalThis.localStorage = {
+      getItem: () => null,
+      setItem() {
+        throw new Error("quota exceeded");
+      },
+      removeItem() {},
+    };
+    equal("persistence failure keeps the in-memory value", internals.updateSettings({ allowNote: true, confirmAllow: true }), {
+      allowNote: true,
+      confirmAllow: true,
+    });
+    equal("persistence failure still notifies memory readers", internals.getSettings(), { allowNote: true, confirmAllow: true });
+  } finally {
+    if (storageInstalled) {
+      if (originalLocalStorage === undefined) delete globalThis.localStorage;
+      else globalThis.localStorage = originalLocalStorage;
+    }
+    internals.updateSettings({ allowNote: true, confirmAllow: true });
+  }
+}
+
+/* -------------------------------------------------- settings section UI */
+
+console.log("settings section");
+
+{
+  setSettings({ allowNote: true, confirmAllow: true });
+  let zhSettings;
+  act(() => {
+    zhSettings = TestRenderer.create(React.createElement(internals.SettingsSection, { t: zhText }));
+  });
+  const zhSettingsText = textOf(zhSettings);
+  includes("settings section shows the title", zhSettingsText, "审批说明浮层");
+  includes("settings section shows the intro", zhSettingsText, "拒绝带理由始终可用");
+  includes("settings section shows the allow-note label", zhSettingsText, "允许时带话");
+  includes("settings section shows the allow-note description", zhSettingsText, "作为 steering 用户消息");
+  includes("settings section shows the allow-note on-risk", zhSettingsText, "开启时：说明会写入会话日志");
+  includes("settings section shows the allow-note off-risk", zhSettingsText, "关闭时：允许不能附带条件");
+  includes("settings section shows the confirmation label", zhSettingsText, "允许二次确认");
+  includes("settings section shows the confirmation description", zhSettingsText, "点允许后先在面板内二次确认");
+  includes("settings section shows the confirmation on-risk", zhSettingsText, "开启时：每次允许多一步操作");
+  includes("settings section shows the confirmation off-risk", zhSettingsText, "关闭时：点允许会立即执行工具调用");
+  includes("settings section shows the default note", zhSettingsText, "两项默认开启");
+  const zhBoxes = zhSettings.root.findAllByType("input");
+  equal("settings section renders two checkboxes", zhBoxes.length, 2);
+  check("settings checkboxes default to checked", zhBoxes.every((box) => box.props.checked === true));
+  equal("allow-note checkbox aria label", zhBoxes[0]?.props["aria-label"], "允许时带话 开关");
+  equal("confirmation checkbox aria label", zhBoxes[1]?.props["aria-label"], "允许二次确认 开关");
+
+  let enSettings;
+  act(() => {
+    enSettings = TestRenderer.create(React.createElement(internals.SettingsSection, { t: enText }));
+  });
+  const enSettingsText = textOf(enSettings);
+  includes("en settings section shows the title", enSettingsText, "Approval Note Dock");
+  includes("en settings section shows the allow-note label", enSettingsText, "Allow with note");
+  includes("en settings section shows the confirmation label", enSettingsText, "Allow confirmation");
+  includes("en settings section shows risk copy", enSettingsText, "no second line of defense against misclicks");
+  includes("en settings section shows the default note", enSettingsText, "Both default to on");
+  equal("en confirmation checkbox aria label", enSettings.root.findAllByType("input")[1]?.props["aria-label"], "Allow confirmation toggle");
+}
+
+{
+  const scriptedStorage = fakeStorage();
+  const originalLocalStorage = globalThis.localStorage;
+  globalThis.localStorage = scriptedStorage;
+  try {
+    setSettings({ allowNote: true, confirmAllow: true });
+    let settingsRenderer;
+    act(() => {
+      settingsRenderer = TestRenderer.create(React.createElement(internals.SettingsSection, { t: zhText }));
+    });
+
+    let boxes = settingsRenderer.root.findAllByType("input");
+    act(() => {
+      boxes[0].props.onChange({ target: { checked: false } });
+    });
+    equal("toggling allow-note updates the store", internals.getSettings().allowNote, false);
+    equal("toggling allow-note persists", JSON.parse(scriptedStorage.map.get(internals.SETTINGS_KEY)).allowNote, false);
+    check("allow-note checkbox re-renders unchecked", settingsRenderer.root.findAllByType("input")[0].props.checked === false);
+
+    boxes = settingsRenderer.root.findAllByType("input");
+    act(() => {
+      boxes[1].props.onChange({ target: { checked: false } });
+    });
+    equal("toggling confirmation updates the store", internals.getSettings().confirmAllow, false);
+    equal("toggling confirmation persists", JSON.parse(scriptedStorage.map.get(internals.SETTINGS_KEY)).confirmAllow, false);
+    check("confirmation checkbox re-renders unchecked", settingsRenderer.root.findAllByType("input")[1].props.checked === false);
+
+    act(() => {
+      settingsRenderer.root.findAllByType("input")[0].props.onChange({ target: { checked: true } });
+    });
+    equal("toggling allow-note back updates the store", internals.getSettings().allowNote, true);
+    check("allow-note checkbox re-renders checked", settingsRenderer.root.findAllByType("input")[0].props.checked === true);
+  } finally {
+    if (originalLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = originalLocalStorage;
+    setSettings({ allowNote: true, confirmAllow: true });
+  }
+}
+
+/* ---------------------------------------------------- overlay behaviour matrix */
+
+console.log("behaviour matrix");
+
+{
+  // allowNote off: the note can no longer ride along on an allow, but the
+  // reject-with-note label and flow are untouched.
+  setSettings({ allowNote: false, confirmAllow: true });
+  const events = [];
+  const target = makeTarget("approval:m-allow-label", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "只改 docs/");
+  check("allowNote off shows the plain allow label", hasButton(renderer, "允许一次"));
+  check("allowNote off hides allow-with-note", !hasButton(renderer, "允许并说明"));
+  check("allowNote off keeps the reject-with-note label", hasButton(renderer, "拒绝并说明"));
+}
+
+{
+  // allowNote off + confirmation on: confirming answers without delivering a note.
+  setSettings({ allowNote: false, confirmAllow: true });
+  const events = [];
+  const target = makeTarget("approval:m-allow-confirm", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "别动别的文件");
+  clickSync(findButton(renderer, "允许一次"));
+  const text = textOf(renderer);
+  check("confirmation still opens when notes are off", text.includes("确认允许这次执行？"));
+  check("confirmation shows the note-disabled hint", text.includes("已在设置中关闭"));
+  check("confirmation hides the note preview when notes are off", !text.includes("将附上说明"));
+  await clickAsync(findButton(renderer, "确认允许"));
+  equal("confirmed allow without note answers allowed-once", answerOutcomes(events), ["allowed-once"]);
+  equal("confirmed allow without note sends no prompt", remote.calls.length, 0);
+}
+
+{
+  // confirmAllow off: one click allows immediately, no confirmation view.
+  setSettings({ allowNote: true, confirmAllow: false });
+  const events = [];
+  const target = makeTarget("approval:m-no-confirm", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  check("confirmation off keeps the plain allow label on an empty draft", hasButton(renderer, "允许一次"));
+  check("confirmation off keeps the plain reject label on an empty draft", hasButton(renderer, "拒绝"));
+  clickSync(findButton(renderer, "允许一次"));
+  check("confirmation off skips the confirm view", !textOf(renderer).includes("确认允许这次执行？"));
+  check("confirmation off reports progress instead", textOf(renderer).includes("正在把说明送进当前对话"));
+  await act(async () => {});
+  equal("confirmation off answers allowed-once immediately", answerOutcomes(events), ["allowed-once"]);
+  equal("confirmation off sends no prompt for an empty draft", remote.calls.length, 0);
+}
+
+{
+  // confirmAllow off + allowNote on: still prompt-before-answer, just no confirm view.
+  setSettings({ allowNote: true, confirmAllow: false });
+  const events = [];
+  const target = makeTarget("approval:m-no-confirm-note", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "只改 docs/ 下的文件");
+  check("confirmation off keeps the allow-with-note label", hasButton(renderer, "允许并说明"));
+  await clickAsync(findButton(renderer, "允许并说明"));
+  equal("direct allow with note answers allowed-once", answerOutcomes(events), ["allowed-once"]);
+  equal("direct allow with note prompts before answering", answerKinds(events), ["prompt", "answer"]);
+  equal("direct allow note uses the allow prefix", remote.calls[0].content[0].text, "（审批同意说明）只改 docs/ 下的文件");
+  equal("direct allow note is steered", remote.calls[0].mode, "steer");
+}
+
+{
+  // Both switches off: an allow carries neither a note nor a confirmation.
+  setSettings({ allowNote: false, confirmAllow: false });
+  const events = [];
+  const target = makeTarget("approval:m-both-off", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "这句话不会送出去");
+  check("both switches off show the plain allow label", hasButton(renderer, "允许一次"));
+  await clickAsync(findButton(renderer, "允许一次"));
+  equal("both switches off answer allowed-once", answerOutcomes(events), ["allowed-once"]);
+  equal("both switches off send no prompt", remote.calls.length, 0);
+}
+
+{
+  // Reject path is independent of both switches.
+  setSettings({ allowNote: false, confirmAllow: false });
+  const events = [];
+  const target = makeTarget("approval:m-reject", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "先别发截图");
+  check("reject-with-note label ignores the switches", hasButton(renderer, "拒绝并说明"));
+  await clickAsync(findButton(renderer, "拒绝并说明"));
+  equal("reject with note still prompts before answering", answerKinds(events), ["prompt", "answer"]);
+  equal("reject note uses the rejection prefix", remote.calls[0].content[0].text, "（审批拒绝理由）先别发截图");
+  equal("reject still answers rejected with switches off", answerOutcomes(events), ["rejected"]);
+}
+
+{
+  // Live settings changes reach the mounted overlay and reset a stale confirm view.
+  setSettings({ allowNote: true, confirmAllow: true });
+  const events = [];
+  const target = makeTarget("approval:m-live", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "即时生效测试");
+  check("dock starts with the allow-with-note label", hasButton(renderer, "允许并说明"));
+  setSettings({ allowNote: false });
+  check("disabling allow-note updates the open dock", hasButton(renderer, "允许一次"));
+  setSettings({ allowNote: true });
+  check("re-enabling allow-note restores the open dock", hasButton(renderer, "允许并说明"));
+
+  clickSync(findButton(renderer, "允许并说明"));
+  check("confirm view is open before the switch changes", textOf(renderer).includes("确认允许这次执行？"));
+  setSettings({ confirmAllow: false });
+  check("disabling confirmation exits the confirm view", findTextarea(renderer) !== undefined);
+  check("disabling confirmation hides the confirm title", !textOf(renderer).includes("确认允许这次执行？"));
+  equal("disabling confirmation answers nothing", answerOutcomes(events), []);
+  setSettings({ allowNote: true, confirmAllow: true });
+}
+
 /* --------------------------------------------------------------- wiring */
 
 console.log("wiring");
@@ -772,6 +1104,7 @@ console.log("wiring");
   const dictionaries = {};
   const registrations = [];
   const disposers = [];
+  const injectedNames = [];
   const remote = fakeRemote([{ ok: true }]);
   const ctx = {
     effect(fn) {
@@ -786,6 +1119,7 @@ console.log("wiring");
     },
     slots: {
       inject(name, install) {
+        injectedNames.push(name);
         install();
       },
       register(options, component) {
@@ -803,7 +1137,8 @@ console.log("wiring");
   };
   bundle.apply(ctx);
   equal("dictionaries registered under the plugin namespace", Object.keys(dictionaries), ["approval-reason-dock"]);
-  equal("one slot registered", registrations.length, 1);
+  equal("slots injected by the plugin", injectedNames, ["shell.overlay", "settings.section"]);
+  equal("two slot registrations", registrations.length, 2);
   const overlay = registrations.find((entry) => entry.options?.name === "shell.overlay");
   equal("registered overlay slot", overlay?.options?.name, "shell.overlay");
   equal("registered overlay id", overlay?.options?.id, "approval-reason-dock");
@@ -812,6 +1147,62 @@ console.log("wiring");
   const injected = overlay?.options?.inject?.();
   equal("overlay inject exposes the remote service", injected?.remote, remote);
   equal("overlay inject exposes the uiSession service", injected?.uiSession, ctx.uiSession);
+  const settingsEntry = registrations.find((entry) => entry.options?.name === "settings.section");
+  equal("registered settings section", settingsEntry?.options?.name, "settings.section");
+  equal("registered settings section id", settingsEntry?.options?.id, "approval-reason-dock");
+  equal("registered settings section order", settingsEntry?.options?.order, 60);
+  equal("settings section locale namespace", settingsEntry?.options?.locale, "approval-reason-dock");
+  equal("settings section component", settingsEntry?.component, internals.SettingsSection);
+  equal("settings nav label is localized", settingsEntry?.options?.label?.(), "审批说明浮层");
+  equal("settings section inject is empty", settingsEntry?.options?.inject?.(), {});
+}
+
+{
+  // The nav label must never throw when the locale seat has no bind().
+  const fallbackRegistrations = [];
+  const fallbackCtx = {
+    effect(fn) {
+      fn();
+    },
+    locale: { register: () => () => {} },
+    slots: {
+      inject(name, install) {
+        install();
+      },
+      register(options, component) {
+        fallbackRegistrations.push({ options, component });
+        return () => {};
+      },
+    },
+  };
+  bundle.apply(fallbackCtx);
+  const settingsEntry = fallbackRegistrations.find((entry) => entry.options?.name === "settings.section");
+  equal("settings nav label falls back to the key name", settingsEntry?.options?.label?.(), "settingsNav");
+
+  const throwingRegistrations = [];
+  const throwingCtx = {
+    effect(fn) {
+      fn();
+    },
+    locale: {
+      register: () => () => {},
+      bind() {
+        throw new Error("no locale seat");
+      },
+    },
+    slots: {
+      inject(name, install) {
+        install();
+      },
+      register(options, component) {
+        throwingRegistrations.push({ options, component });
+        return () => {};
+      },
+    },
+  };
+  bundle.apply(throwingCtx);
+  const throwingEntry = throwingRegistrations.find((entry) => entry.options?.name === "settings.section");
+  equal("settings nav label survives a broken locale seat", throwingEntry?.options?.label?.(), "settingsNav");
 }
 
 console.log("");

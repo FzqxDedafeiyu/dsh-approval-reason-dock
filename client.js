@@ -9,6 +9,9 @@ window.__ModuleLoader__.load({
 
 		const NS = "approval-reason-dock";
 		const MAX_REASON_CHARS = 500;
+		// 0.2.0 settings: persisted per browser, both features default to on.
+		const SETTINGS_KEY = "dsh-approval-reason-dock:settings";
+		const DEFAULT_SETTINGS = { allowNote: true, confirmAllow: true };
 
 		/* ------------------------------------------------------------ copy */
 
@@ -44,6 +47,21 @@ window.__ModuleLoader__.load({
 			ariaInput: "审批说明（可选）",
 			ariaPanel: "审批说明浮层",
 			ariaConfirmPanel: "允许二次确认",
+			// 0.2.0 settings section
+			settingsNav: "审批说明浮层",
+			settingsTitle: "审批说明浮层",
+			settingsIntro: "控制「允许时带话」与「允许二次确认」。拒绝带理由始终可用，不受这两个开关影响。",
+			allowNoteLabel: "允许时带话",
+			allowNoteDesc: "允许审批时可以附一句说明，作为 steering 用户消息送进当前对话。",
+			allowNoteRiskOn: "开启时：说明会写入会话日志并进入模型上下文；说明送不到时本次不回答审批（可重试）。",
+			allowNoteRiskOff: "关闭时：允许不能附带条件，模型只看到原生放行；需要条件时请改用「拒绝并说明」。",
+			confirmAllowLabel: "允许二次确认",
+			confirmAllowDesc: "点允许后先在面板内二次确认，再执行工具调用。",
+			confirmAllowRiskOn: "开启时：每次允许多一步操作，高频审批会略慢。",
+			confirmAllowRiskOff: "关闭时：点允许会立即执行工具调用，误触/手滑没有第二道保护。",
+			settingsDefaultNote: "两项默认开启；设置保存在本机浏览器。",
+			allowNoteDisabledHint: "「允许时带话」已在设置中关闭：本次允许不会附说明。",
+			settingsToggleAria: "{name} 开关",
 		};
 
 		const en = {
@@ -78,6 +96,21 @@ window.__ModuleLoader__.load({
 			ariaInput: "Approval note (optional)",
 			ariaPanel: "Approval note panel",
 			ariaConfirmPanel: "Allow confirmation",
+			// 0.2.0 settings section
+			settingsNav: "Approval Note Dock",
+			settingsTitle: "Approval Note Dock",
+			settingsIntro: "Controls \"allow with note\" and \"allow confirmation\". Reject with a note always works and is not affected by these switches.",
+			allowNoteLabel: "Allow with note",
+			allowNoteDesc: "Attach a note when allowing; it enters the running turn as a steering user message.",
+			allowNoteRiskOn: "On: the note becomes a normal user message in the session log and model context; if it cannot be delivered, the approval is not answered (retryable).",
+			allowNoteRiskOff: "Off: allows carry no conditions — the model only sees a native allow; use \"Reject with note\" instead.",
+			confirmAllowLabel: "Allow confirmation",
+			confirmAllowDesc: "Clicking allow opens an in-panel confirmation before the tool call runs.",
+			confirmAllowRiskOn: "On: one extra step per allow; frequent approvals feel slower.",
+			confirmAllowRiskOff: "Off: clicking allow runs the tool call immediately; no second line of defense against misclicks.",
+			settingsDefaultNote: "Both default to on; stored in this browser.",
+			allowNoteDisabledHint: "\"Allow with note\" is off in settings: this allow carries no note.",
+			settingsToggleAria: "{name} toggle",
 		};
 
 		/* --------------------------------------------------------- helpers */
@@ -230,6 +263,108 @@ window.__ModuleLoader__.load({
 			if (key === undefined) return;
 			if (text === "") draftsByKey.delete(key);
 			else draftsByKey.set(key, text);
+		}
+
+		/* ------------------------------------------------------ settings store */
+
+		let cachedSettings = readStoredSettings();
+		/** @type {Set<() => void>} */
+		const settingsListeners = new Set();
+
+		/**
+		 * Read persisted settings. Missing storage, malformed JSON, non-object
+		 * values and non-boolean fields all fall back to defaults per field;
+		 * unknown extra fields are ignored.
+		 */
+		function readStoredSettings() {
+			const defaults = { allowNote: DEFAULT_SETTINGS.allowNote, confirmAllow: DEFAULT_SETTINGS.confirmAllow };
+			let raw;
+			try {
+				if (typeof globalThis.localStorage === "undefined" || globalThis.localStorage === null) return defaults;
+				raw = globalThis.localStorage.getItem(SETTINGS_KEY);
+			} catch {
+				return defaults;
+			}
+			if (typeof raw !== "string" || raw === "") return defaults;
+			let parsed;
+			try {
+				parsed = JSON.parse(raw);
+			} catch {
+				return defaults;
+			}
+			if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return defaults;
+			return {
+				allowNote: typeof parsed.allowNote === "boolean" ? parsed.allowNote : defaults.allowNote,
+				confirmAllow: typeof parsed.confirmAllow === "boolean" ? parsed.confirmAllow : defaults.confirmAllow,
+			};
+		}
+
+		function notifySettings() {
+			for (const listener of Array.from(settingsListeners)) {
+				try {
+					listener();
+				} catch {
+					// A broken subscriber must not break the store or other subscribers.
+				}
+			}
+		}
+
+		/** Current settings object (stable reference between updates). */
+		function getSettings() {
+			return cachedSettings;
+		}
+
+		/** Patch one or both switches, persist, and notify subscribers. */
+		function updateSettings(patch) {
+			const source = patch !== null && typeof patch === "object" ? patch : {};
+			const next = {
+				allowNote: typeof source.allowNote === "boolean" ? source.allowNote : cachedSettings.allowNote,
+				confirmAllow: typeof source.confirmAllow === "boolean" ? source.confirmAllow : cachedSettings.confirmAllow,
+			};
+			cachedSettings = next;
+			try {
+				if (typeof globalThis.localStorage !== "undefined" && globalThis.localStorage !== null) {
+					globalThis.localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+				}
+			} catch {
+				// Persistence only: a blocked localStorage keeps the in-memory value.
+			}
+			notifySettings();
+			return next;
+		}
+
+		/** Subscribe to settings changes; returns an unsubscribe function. */
+		function subscribe(listener) {
+			if (typeof listener !== "function") return () => {};
+			settingsListeners.add(listener);
+			return () => {
+				settingsListeners.delete(listener);
+			};
+		}
+
+		/** Re-read persisted settings, notifying subscribers when they changed. */
+		function syncSettingsFromStorage() {
+			const next = readStoredSettings();
+			if (next.allowNote === cachedSettings.allowNote && next.confirmAllow === cachedSettings.confirmAllow) return cachedSettings;
+			cachedSettings = next;
+			notifySettings();
+			return cachedSettings;
+		}
+
+		/** storage-event handler: ignore other keys, re-read our own (null = cleared). */
+		function handleStorageEvent(event) {
+			if (event !== undefined && event !== null && event.key !== undefined && event.key !== null && event.key !== SETTINGS_KEY) {
+				return cachedSettings;
+			}
+			return syncSettingsFromStorage();
+		}
+
+		// One process-wide listener keeps other windows/tabs in sync. Node and
+		// plain test environments have no addEventListener, hence the guard.
+		try {
+			if (typeof globalThis.addEventListener === "function") globalThis.addEventListener("storage", handleStorageEvent);
+		} catch {
+			// Cross-window sync is best effort only.
 		}
 
 		/**
@@ -397,8 +532,48 @@ window.__ModuleLoader__.load({
 			whiteSpace: "pre-wrap",
 			overflowWrap: "anywhere",
 		};
+		const settingsSectionStyle = {
+			display: "flex",
+			flexDirection: "column",
+			gap: 4,
+			width: "100%",
+			maxWidth: "100%",
+			boxSizing: "border-box",
+			color: "var(--dsw-alias-label-primary, #e8e8e8)",
+			fontFamily: "var(--dsw-font-base-16-font-family, system-ui, sans-serif)",
+			fontSize: "var(--dsw-font-base-16-font-size, 13px)",
+			lineHeight: "var(--dsw-font-base-16-line-height, 1.5)",
+		};
+		const settingsTitleStyle = { fontWeight: 600, fontSize: 14, color: "var(--dsw-alias-label-primary, #e8e8e8)" };
+		const settingsIntroStyle = { color: "var(--dsw-alias-label-secondary, #b9b9b9)", fontSize: 12 };
+		const settingsRowStyle = {
+			display: "flex",
+			flexDirection: "column",
+			gap: 4,
+			padding: "10px 0 2px",
+			borderTop: "1px solid var(--dsw-alias-border-l2, #3a3a3a)",
+		};
+		const settingsHeadStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 };
+		const settingsLabelStyle = { fontWeight: 600, cursor: "pointer", color: "var(--dsw-alias-label-primary, #e8e8e8)" };
+		const settingsCheckboxStyle = {
+			width: 16,
+			height: 16,
+			flex: "none",
+			accentColor: "var(--dsw-alias-state-warn-primary, #e0a45e)",
+			cursor: "pointer",
+		};
+		const settingsDescStyle = { color: "var(--dsw-alias-label-secondary, #b9b9b9)", fontSize: 12 };
+		const settingsRiskStyle = { display: "flex", flexDirection: "column", gap: 2 };
+		const settingsRiskOnStyle = { color: "var(--dsw-alias-label-tertiary, #9a9a9a)", fontSize: 12 };
+		const settingsRiskOffStyle = { color: "var(--dsw-alias-state-warn-label, #e0a45e)", fontSize: 12 };
+		const settingsDefaultStyle = { paddingTop: 8, color: "var(--dsw-alias-label-tertiary, #9a9a9a)", fontSize: 12 };
 
 		/* -------------------------------------------------------- component */
+
+		/** Subscribe a component to the settings store. */
+		function useSettings() {
+			return React.useSyncExternalStore(subscribe, getSettings, getSettings);
+		}
 
 		/**
 		 * Frame-wide panel: while one answerable approval exists, offer an
@@ -414,6 +589,10 @@ window.__ModuleLoader__.load({
 			const t = props.t;
 			const remote = props.remote;
 			const uiSession = props.uiSession;
+			// Settings live in a module store shared with the settings section.
+			const settings = useSettings();
+			const allowNote = settings.allowNote === true;
+			const confirmAllow = settings.confirmAllow === true;
 			// uiSession is the service; `.current` is the binding source for the
 			// session shown in the main view.
 			const currentSessionSource = uiSession === undefined || uiSession === null ? undefined : uiSession.current;
@@ -457,6 +636,12 @@ window.__ModuleLoader__.load({
 				setView("input");
 				setCollapsed(false);
 			}, [approval]);
+
+			React.useEffect(() => {
+				// Defensive: switching "allow confirmation" off while the confirm
+				// view happens to be open must never leave a stale confirmation.
+				if (view === "confirm-allow" && confirmAllow !== true) setView("input");
+			}, [view, confirmAllow]);
 
 			const dismiss = React.useCallback(() => setNotice(null), []);
 
@@ -582,9 +767,10 @@ window.__ModuleLoader__.load({
 					h("div", { style: confirmBodyStyle }, t("confirmBody")),
 					busy ? h("div", { style: hintStyle }, t("sending")) : null,
 					h("div", { style: warnHintStyle }, t("partialAgreementHint")),
-					draft === ""
-						? null
-						: h("div", { style: confirmNoteStyle }, t("confirmNote", { text: normalizeReason(draft) })),
+					draft !== "" && allowNote
+						? h("div", { style: confirmNoteStyle }, t("confirmNote", { text: normalizeReason(draft) }))
+						: null,
+					allowNote === false ? h("div", { style: warnHintStyle }, t("allowNoteDisabledHint")) : null,
 					h(
 						"div",
 						{ style: actionsRow },
@@ -594,7 +780,7 @@ window.__ModuleLoader__.load({
 								type: "button",
 								style: confirmButton,
 								disabled: busy,
-								onClick: () => void submit("allowed-once", draft !== ""),
+								onClick: () => void submit("allowed-once", allowNote && draft !== ""),
 							},
 							t("confirmAllow"),
 						),
@@ -642,10 +828,16 @@ window.__ModuleLoader__.load({
 							disabled: busy,
 							onClick: () => {
 								if (busy) return;
+								if (confirmAllow !== true) {
+									// Confirmation switched off: allow immediately (still
+									// carrying the note only when allow-with-note is on).
+									void submit("allowed-once", allowNote && draft !== "");
+									return;
+								}
 								setView("confirm-allow");
 							},
 						},
-						draft !== "" ? t("allowWithNote") : t("allowPlain"),
+						allowNote && draft !== "" ? t("allowWithNote") : t("allowPlain"),
 					),
 					h(
 						"button",
@@ -679,7 +871,92 @@ window.__ModuleLoader__.load({
 			);
 		}
 
+		/* -------------------------------------------------- settings section */
+
+		/**
+		 * Settings page section: two independent switches, each with its on/off
+		 * risk copy. Values come from the module store, so the overlay and any
+		 * other window stay in sync.
+		 * @param props - slot props: locale seat.
+		 */
+		function SettingsSection(props) {
+			const t = props.t;
+			const settings = useSettings();
+			return h(
+				"section",
+				{ style: settingsSectionStyle, "aria-label": t("settingsTitle") },
+				h("div", { style: settingsTitleStyle }, t("settingsTitle")),
+				h("div", { style: settingsIntroStyle }, t("settingsIntro")),
+				settingsToggleRow(t, {
+					id: "dsh-approval-reason-dock-allow-note",
+					label: t("allowNoteLabel"),
+					desc: t("allowNoteDesc"),
+					riskOn: t("allowNoteRiskOn"),
+					riskOff: t("allowNoteRiskOff"),
+					checked: settings.allowNote === true,
+					onChange: (checked) => updateSettings({ allowNote: checked }),
+				}),
+				settingsToggleRow(t, {
+					id: "dsh-approval-reason-dock-confirm-allow",
+					label: t("confirmAllowLabel"),
+					desc: t("confirmAllowDesc"),
+					riskOn: t("confirmAllowRiskOn"),
+					riskOff: t("confirmAllowRiskOff"),
+					checked: settings.confirmAllow === true,
+					onChange: (checked) => updateSettings({ confirmAllow: checked }),
+				}),
+				h("div", { style: settingsDefaultStyle }, t("settingsDefaultNote")),
+			);
+		}
+
+		/** One labelled checkbox plus its description and both risk lines. */
+		function settingsToggleRow(t, options) {
+			return h(
+				"div",
+				{ style: settingsRowStyle },
+				h(
+					"div",
+					{ style: settingsHeadStyle },
+					h("label", { htmlFor: options.id, style: settingsLabelStyle }, options.label),
+					h("input", {
+						id: options.id,
+						type: "checkbox",
+						checked: options.checked,
+						style: settingsCheckboxStyle,
+						"aria-label": t("settingsToggleAria", { name: options.label }),
+						onChange: (event) => options.onChange(event.target.checked === true),
+					}),
+				),
+				h("div", { style: settingsDescStyle }, options.desc),
+				h(
+					"div",
+					{ style: settingsRiskStyle },
+					h("div", { style: settingsRiskOnStyle }, options.riskOn),
+					h("div", { style: settingsRiskOffStyle }, options.riskOff),
+				),
+			);
+		}
+
 		/* ----------------------------------------------------------- plugin */
+
+		/**
+		 * Localized settings nav label; a missing locale seat falls back to the
+		 * raw key name so registration never throws.
+		 */
+		function settingsNavLabel(ctx) {
+			try {
+				if (ctx !== undefined && ctx !== null && ctx.locale !== undefined && ctx.locale !== null && typeof ctx.locale.bind === "function") {
+					const t = ctx.locale.bind(NS);
+					if (typeof t === "function") {
+						const text = t("settingsNav");
+						if (typeof text === "string" && text !== "") return text;
+					}
+				}
+			} catch {
+				// Fall through to the key name.
+			}
+			return "settingsNav";
+		}
 
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, { zh, en }), "approval-reason-dock: dictionaries");
@@ -693,6 +970,19 @@ window.__ModuleLoader__.load({
 						inject: () => ({ remote: ctx.remote, uiSession: ctx.uiSession }),
 					},
 					ApprovalReasonDock,
+				),
+			);
+			ctx.slots.inject("settings.section", () =>
+				ctx.slots.register(
+					{
+						name: "settings.section",
+						id: NS,
+						order: 60,
+						label: () => settingsNavLabel(ctx),
+						locale: NS,
+						inject: () => ({}),
+					},
+					SettingsSection,
 				),
 			);
 		}
@@ -715,6 +1005,17 @@ window.__ModuleLoader__.load({
 			sessionTitleOf,
 			recallDraft,
 			rememberDraft,
+			// 0.2.0 settings store + settings section
+			SETTINGS_KEY,
+			DEFAULT_SETTINGS,
+			getSettings,
+			updateSettings,
+			subscribe,
+			readStoredSettings,
+			syncSettingsFromStorage,
+			handleStorageEvent,
+			SettingsSection,
+			settingsNavLabel,
 			zh,
 			en,
 			ApprovalReasonDock,

@@ -9,7 +9,7 @@
     --text: #e8e8e8; --text-2: #b9b9b9; --text-3: #9a9a9a;
     --warn: #e0a45e; --primary-fill: #f0f0f0; --primary-ink: #141414;
     --input-bg: #10141a; --radius-md: 9px; --radius-xl: 14px;
-    --shadow: 0 8px 28px rgba(0,0,0,.35);
+    --panel-line: #2e2e2e; --shadow: 0 8px 28px rgba(0,0,0,.35);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; width: 1000px; height: 600px; overflow: hidden; }
@@ -19,19 +19,34 @@
   .sidebar .section { padding: 4px 8px 10px; color: #6f7680; font-size: 12px; }
   .sidebar .item { padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sidebar .item.active { background: #23272e; color: var(--text); }
-  .main { position: absolute; left: 240px; right: 0; top: 0; bottom: 0; padding: 20px 26px; }
-  .main .line { color: var(--text-2); margin-bottom: 12px; }
-  .main .user { width: fit-content; margin-left: auto; margin-right: 374px; background: #24344d; color: #dfe8f5; padding: 9px 13px; border-radius: 10px; }
-  .builtin { position: absolute; left: 266px; bottom: 24px; width: 330px; border: 1px solid #6b4a22; border-radius: var(--radius-xl); background: var(--bg-2); overflow: hidden; opacity: .55; }
-  .builtin .strip { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #2a2115; color: var(--warn); }
-  .builtin .body { padding: 12px 16px 16px; color: var(--text-2); font-size: 12px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 
-  /* 右侧两态：1) 已填说明的输入态，2) 允许二次确认视图 */
-  .stack { position: absolute; right: 24px; top: 20px; width: 344px; display: flex; flex-direction: column; }
   .state-label { margin: 0 0 4px 2px; color: #6f7680; font-size: 10px; letter-spacing: .08em; line-height: 1.2; }
   .state-label + .panel { margin-bottom: 12px; }
   .panel { width: 344px; padding: 10px 13px 12px; border-radius: var(--radius-xl); border: 1px solid var(--border); background: var(--bg-2); color: var(--text); box-shadow: var(--shadow); }
+
+  /* 左侧：设置面板（两个开关，默认开启，含开启/关闭风险提示） */
+  .left-col { position: absolute; left: 266px; top: 20px; width: 344px; }
+  .settings { padding: 14px 16px; }
+  .settings-title { font-size: 14px; font-weight: 600; line-height: 1.3; }
+  .settings-intro { margin-top: 4px; color: var(--text-2); font-size: 11.5px; line-height: 1.45; }
+  .divider { height: 1px; background: var(--panel-line); margin: 10px 0; }
+  .switch-head { display: flex; align-items: center; gap: 8px; }
+  .switch-label { font-weight: 600; }
+  .checkbox { margin-left: auto; width: 18px; height: 18px; border-radius: 5px; background: var(--warn); position: relative; flex: none; }
+  .checkbox::after { content: ''; position: absolute; left: 5px; top: 4px; width: 8px; height: 4px; border-left: 2px solid var(--primary-ink); border-bottom: 2px solid var(--primary-ink); transform: rotate(-45deg); }
+  .switch-desc { margin-top: 2px; color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
+  .risk { margin-top: 6px; padding: 7px 9px; border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-2); font-size: 11px; line-height: 1.38; display: flex; flex-direction: column; gap: 4px; }
+  .risk + .switch-head { margin-top: 12px; }
+  .settings-default { color: #8a8a8a; font-size: 11px; line-height: 1.4; }
+
+  /* 右侧：折叠 pill + 输入态 + 允许二次确认 */
+  .right-col { position: absolute; right: 24px; top: 20px; width: 344px; display: flex; flex-direction: column; }
+  .pill-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .pill-row .caption { color: #6f7680; font-size: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); opacity: .82; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .pill .dot { color: var(--warn); }
+  .pill .tool { color: var(--text-3); font-size: 12px; }
   .head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; line-height: 1.4; }
   .head .dot { color: var(--warn); }
   .head .title { font-weight: 600; flex: none; }
@@ -50,11 +65,6 @@
   .warn-hint { margin-bottom: 6px; color: var(--warn); font-size: 11.5px; line-height: 1.4; }
   .note-preview { margin-bottom: 6px; padding: 6px 8px; border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
 
-  .pill-row { position: absolute; left: 266px; top: 414px; display: flex; align-items: center; gap: 10px; }
-  .pill-row .caption { color: #6f7680; font-size: 12px; }
-  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); opacity: .82; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
-  .pill .dot { color: var(--warn); }
-  .pill .tool { color: var(--text-3); font-size: 12px; }
   .caption-bottom { position: absolute; left: 266px; bottom: 6px; color: #5f666f; font-size: 11px; }
 </style>
 </head>
@@ -68,18 +78,46 @@
       <div class="item">代码审查</div>
     </div>
 
-    <div class="main">
-      <div class="line">审批提示一般只有允许 / 拒绝两个动作。</div>
-      <div class="line user">把那张截图允许上传吧</div>
-      <div class="line">等待审批结果…</div>
+    <!-- 设置面板：两个开关，默认都开启 -->
+    <div class="left-col">
+      <div class="state-label">设置 · 两个开关（默认开启）</div>
+      <div class="panel settings">
+        <div class="settings-title">审批说明浮层</div>
+        <div class="settings-intro">控制「允许时带话」与「允许二次确认」。拒绝带理由始终可用，不受这两个开关影响。</div>
+        <div class="divider"></div>
+
+        <div class="switch-head">
+          <span class="switch-label">允许时带话</span>
+          <span class="checkbox" aria-hidden="true"></span>
+        </div>
+        <div class="switch-desc">允许审批时可以附一句说明，作为 steering 用户消息送进当前对话。</div>
+        <div class="risk">
+          <div>开启时：说明会写入会话日志并进入模型上下文；说明送不到时本次不回答审批（可重试）。</div>
+          <div>关闭时：允许不能附带条件，模型只看到原生放行；需要条件时请改用「拒绝并说明」。</div>
+        </div>
+
+        <div class="switch-head">
+          <span class="switch-label">允许二次确认</span>
+          <span class="checkbox" aria-hidden="true"></span>
+        </div>
+        <div class="switch-desc">点允许后先在面板内二次确认，再执行工具调用。</div>
+        <div class="risk">
+          <div>开启时：每次允许多一步操作，高频审批会略慢。</div>
+          <div>关闭时：点允许会立即执行工具调用，误触/手滑没有第二道保护。</div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="settings-default">两项默认开启；设置保存在本机浏览器。</div>
+      </div>
     </div>
 
-    <div class="builtin">
-      <div class="strip"><span class="dot"></span>等待审批</div>
-      <div class="body">内置审批卡保持原样；浮层给允许 / 拒绝加可选说明，并在允许前二次确认。</div>
-    </div>
+    <!-- 折叠 pill 与两个浮层状态 -->
+    <div class="right-col">
+      <div class="pill-row">
+        <span class="caption">折叠后：</span>
+        <span class="pill"><span class="dot"></span>待审核<span class="tool">pwsh</span></span>
+      </div>
 
-    <div class="stack">
       <div class="state-label">① 输入态 — 已填说明</div>
       <div class="panel">
         <div class="head">
@@ -117,12 +155,7 @@
       </div>
     </div>
 
-    <div class="pill-row">
-      <span class="caption">折叠后：</span>
-      <span class="pill"><span class="dot"></span>待审核<span class="tool">pwsh</span></span>
-    </div>
-
-    <div class="caption-bottom">0.2.0 · 浮层跟随当前会话（右上角）；允许前先二次确认</div>
+    <div class="caption-bottom">0.2.0 · 浮层跟随当前会话（右上角）；允许前先二次确认；两项允许行为受设置开关控制</div>
   </div>
 </body>
 </html>

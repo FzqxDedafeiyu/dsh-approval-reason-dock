@@ -24,9 +24,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Both decisions are now **blocked on note delivery failure**: the approval is
   not answered, the panel stays open with a retryable error, and the draft is
   kept — so a note can no longer be lost while the action already ran.
+- **Settings section.** The plugin registers a `settings.section` entry in DSH
+  settings with two switches — *Allow with note* and *Allow confirmation* —
+  both defaulting to on and stored in the browser (`localStorage`), with
+  explicit on/off risk copy for each switch. Settings are exposed through a
+  small subscribable store, so the panel reacts on the next render.
 
 ### Changed
 
+- **Allow behavior follows the settings switches**: with *Allow with note* off
+  the allow button stays native (`allowPlain`) and a typed draft is not sent
+  (the confirmation view shows a disabled hint instead); with *Allow
+  confirmation* off clicking allow skips the confirmation view and answers
+  immediately. The reject path and empty-input behavior are unchanged, and
+  reject with a note is never affected by the switches.
 - The buttons follow the draft: an empty input offers native `Allow once` /
   `Reject`; a non-empty draft switches to `Allow with note` / `Reject with
   note`. The old rejection-only keys (`send` / `plain`) were replaced by

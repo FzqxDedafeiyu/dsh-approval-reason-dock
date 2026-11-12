@@ -9,7 +9,7 @@
     --text: #e8e8e8; --text-2: #b9b9b9; --text-3: #9a9a9a;
     --warn: #e0a45e; --primary-fill: #f0f0f0; --primary-ink: #141414;
     --input-bg: #10141a; --radius-md: 9px; --radius-xl: 14px;
-    --shadow: 0 8px 28px rgba(0,0,0,.35);
+    --panel-line: #2e2e2e; --shadow: 0 8px 28px rgba(0,0,0,.35);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; width: 1000px; height: 600px; overflow: hidden; }
@@ -19,19 +19,34 @@
   .sidebar .section { padding: 4px 8px 10px; color: #6f7680; font-size: 12px; }
   .sidebar .item { padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sidebar .item.active { background: #23272e; color: var(--text); }
-  .main { position: absolute; left: 240px; right: 0; top: 0; bottom: 0; padding: 20px 26px; }
-  .main .line { color: var(--text-2); margin-bottom: 12px; }
-  .main .user { width: fit-content; margin-left: auto; margin-right: 374px; background: #24344d; color: #dfe8f5; padding: 9px 13px; border-radius: 10px; }
-  .builtin { position: absolute; left: 266px; bottom: 24px; width: 330px; border: 1px solid #6b4a22; border-radius: var(--radius-xl); background: var(--bg-2); overflow: hidden; opacity: .55; }
-  .builtin .strip { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #2a2115; color: var(--warn); }
-  .builtin .body { padding: 12px 16px 16px; color: var(--text-2); font-size: 12px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 
-  /* right-hand stack: 1) input state with a typed draft, 2) allow confirmation view */
-  .stack { position: absolute; right: 24px; top: 20px; width: 344px; display: flex; flex-direction: column; }
   .state-label { margin: 0 0 4px 2px; color: #6f7680; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; line-height: 1.2; }
   .state-label + .panel { margin-bottom: 12px; }
   .panel { width: 344px; padding: 10px 13px 12px; border-radius: var(--radius-xl); border: 1px solid var(--border); background: var(--bg-2); color: var(--text); box-shadow: var(--shadow); }
+
+  /* left: the Settings section (two switches, default on, on/off risk copy) */
+  .left-col { position: absolute; left: 266px; top: 20px; width: 344px; }
+  .settings { padding: 14px 16px; }
+  .settings-title { font-size: 14px; font-weight: 600; line-height: 1.3; }
+  .settings-intro { margin-top: 4px; color: var(--text-2); font-size: 11.5px; line-height: 1.45; }
+  .divider { height: 1px; background: var(--panel-line); margin: 10px 0; }
+  .switch-head { display: flex; align-items: center; gap: 8px; }
+  .switch-label { font-weight: 600; }
+  .checkbox { margin-left: auto; width: 18px; height: 18px; border-radius: 5px; background: var(--warn); position: relative; flex: none; }
+  .checkbox::after { content: ''; position: absolute; left: 5px; top: 4px; width: 8px; height: 4px; border-left: 2px solid var(--primary-ink); border-bottom: 2px solid var(--primary-ink); transform: rotate(-45deg); }
+  .switch-desc { margin-top: 2px; color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
+  .risk { margin-top: 6px; padding: 7px 9px; border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-2); font-size: 11px; line-height: 1.38; display: flex; flex-direction: column; gap: 4px; }
+  .risk + .switch-head { margin-top: 12px; }
+  .settings-default { color: #8a8a8a; font-size: 11px; line-height: 1.4; }
+
+  /* right: collapsed pill + input state + allow confirmation view */
+  .right-col { position: absolute; right: 24px; top: 20px; width: 344px; display: flex; flex-direction: column; }
+  .pill-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .pill-row .caption { color: #6f7680; font-size: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); opacity: .82; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  .pill .dot { color: var(--warn); }
+  .pill .tool { color: var(--text-3); font-size: 12px; }
   .head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; line-height: 1.4; }
   .head .dot { color: var(--warn); }
   .head .title { font-weight: 600; flex: none; }
@@ -50,11 +65,6 @@
   .warn-hint { margin-bottom: 6px; color: var(--warn); font-size: 11.5px; line-height: 1.4; }
   .note-preview { margin-bottom: 6px; padding: 6px 8px; border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
 
-  .pill-row { position: absolute; left: 266px; top: 414px; display: flex; align-items: center; gap: 10px; }
-  .pill-row .caption { color: #6f7680; font-size: 12px; }
-  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); opacity: .82; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
-  .pill .dot { color: var(--warn); }
-  .pill .tool { color: var(--text-3); font-size: 12px; }
   .caption-bottom { position: absolute; left: 266px; bottom: 6px; color: #5f666f; font-size: 11px; }
 </style>
 </head>
@@ -68,18 +78,46 @@
       <div class="item">Code review</div>
     </div>
 
-    <div class="main">
-      <div class="line">Approval prompts normally offer allow / reject only.</div>
-      <div class="line user">Let me approve that screenshot upload</div>
-      <div class="line">Waiting for the approval decision…</div>
+    <!-- Settings section: two switches, both default on -->
+    <div class="left-col">
+      <div class="state-label">Settings · two switches (default on)</div>
+      <div class="panel settings">
+        <div class="settings-title">Approval Note Dock</div>
+        <div class="settings-intro">Controls "allow with note" and "allow confirmation". Reject with a note always works and is not affected by these switches.</div>
+        <div class="divider"></div>
+
+        <div class="switch-head">
+          <span class="switch-label">Allow with note</span>
+          <span class="checkbox" aria-hidden="true"></span>
+        </div>
+        <div class="switch-desc">Attach a note when allowing; it enters the running turn as a steering user message.</div>
+        <div class="risk">
+          <div>On: the note becomes a normal user message in the session log and model context; if it cannot be delivered, the approval is not answered (retryable).</div>
+          <div>Off: allows carry no conditions — the model only sees a native allow; use "Reject with note" instead.</div>
+        </div>
+
+        <div class="switch-head">
+          <span class="switch-label">Allow confirmation</span>
+          <span class="checkbox" aria-hidden="true"></span>
+        </div>
+        <div class="switch-desc">Clicking allow opens an in-panel confirmation before the tool call runs.</div>
+        <div class="risk">
+          <div>On: one extra step per allow; frequent approvals feel slower.</div>
+          <div>Off: clicking allow runs the tool call immediately; no second line of defense against misclicks.</div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="settings-default">Both default to on; stored in this browser.</div>
+      </div>
     </div>
 
-    <div class="builtin">
-      <div class="strip"><span class="dot"></span>Waiting for approval</div>
-      <div class="body">The built-in approval card stays unchanged; the overlay adds optional notes for allow / reject and an allow confirmation.</div>
-    </div>
+    <!-- Collapsed pill + the two overlay states -->
+    <div class="right-col">
+      <div class="pill-row">
+        <span class="caption">Collapsed:</span>
+        <span class="pill"><span class="dot"></span>Pending review<span class="tool">pwsh</span></span>
+      </div>
 
-    <div class="stack">
       <div class="state-label">1 · input state — draft typed</div>
       <div class="panel">
         <div class="head">
@@ -117,12 +155,7 @@
       </div>
     </div>
 
-    <div class="pill-row">
-      <span class="caption">Collapsed:</span>
-      <span class="pill"><span class="dot"></span>Pending review<span class="tool">pwsh</span></span>
-    </div>
-
-    <div class="caption-bottom">0.2.0 · the panel follows the current session (top-right); allow asks for confirmation first</div>
+    <div class="caption-bottom">0.2.0 · panel follows the current session (top-right); allow asks for confirmation first; both allow behaviors follow Settings</div>
   </div>
 </body>
 </html>
