@@ -117,7 +117,7 @@ cd <repo working copy>
 npm install
 
 # 跑沙箱测试（不接触运行中的 DSH）
-npm test                 # = node test/harness.mjs，当前 451/451
+npm test                 # = node test/harness.mjs，当前 457/457
 
 # 校验发布文件清单
 npm run pack:check       # = npm pack --dry-run
@@ -248,7 +248,7 @@ $git = '%LOCALAPPDATA%\Microsoft\WinGet\Packages\Git.MinGit\cmd\git.exe'
 | 2026-11-09 | 0.1.1 | 会话跟随（`uiSession.current`）、会话名、右上角位置、折叠/立即收起、按审批保存草稿、客户端激活修复（inject 服务名）、窄订阅；harness 104/104，DSH 0.2.2 真机多会话验证通过 |
 | 2026-11-10 | 0.1.2 | docs/市场素材同步版（无运行时代码变更）：tag 与 main 对齐、收录徽章、0.2.1 显式回退安装命令、中英文预览图与 screenshots.json 进入 tag；probe/scripts 移出发布分支 |
 | 2026-11-12 | 0.2.0 | 允许并说明（outcome `allowed-once`，前缀 `（审批同意说明）`，prompt 先于 answer）、允许前二次确认视图（风险说明 / 部分同意提示 / 取消 / Esc / Enter 不直接放行 / 防重复）、按钮文案随草稿切换、说明投递失败阻塞本次决定、说明上限 500、设置页控制面板（`settings.section` 两个开关、localStorage 持久化、行为矩阵，默认都开启；控制面板真机验证通过：设置节与两行风险提示可见、关闭二次确认直接放行、关闭带话不发说明、恢复开启后确认视图正常、刷新后设置保留）；harness 309/309；DSH 0.2.2 真机六轮验证通过（允许并说明+取消/Esc/切会话、原生拒绝、拒绝并说明、原生允许、折叠+双会话同时挂审批、失败路径临时故障构建），会话事件日志核对 `asked→说明→decided→tool/result` 顺序与 outcome 均正确；README / CHANGELOG / locale / MAINTENANCE / ALLOW-WITH-NOTE / 预览图同步 |
-| 2026-11-17 | 0.3.0 | 允许说明送达提醒（`allowNotice` 默认开、`allowNoticeMs` 默认 3000ms 并夹取 1–10 秒、最多 2 条内存队列、最后一条重新计时、新卡/切会话不丢、queue 降级 warn 色 + ⚠️、只影响允许侧）、文案修正（steer 提示「下一步模型可见」、输入提示不再写「立即进入当前对话」）、审批日志基础版（`approvalLog` 默认关、key `dsh-approval-reason-dock:log:v1` schema v1、总量 200 / 每会话 100 上限、查看/过滤/导出/清空、内置卡决定记「结果未知」、只本机不上传）、更新检查（`updateCheck` 默认关、只查 npm registry 的包名与版本号、semver 比较、只提示更新命令不安装、缓存 1 小时、失败静默）、设置六字段与 0.2.0 旧存储迁移；harness 451/451；`engines.dsh` / `exports.inject` / `dsh.client.inject` / `index.js` 不变；README / CHANGELOG / MAINTENANCE / ALLOW-WITH-NOTE / locale / 预览图源文件同步 |
+| 2026-11-17 | 0.3.0 | 允许说明送达提醒（`allowNotice` 默认开、`allowNoticeMs` 默认 3000ms 并夹取 1–10 秒、最多 2 条内存队列、最后一条重新计时、新卡/切会话不丢、queue 降级 warn 色 + ⚠️、只影响允许侧）、文案修正（steer 提示「下一步模型可见」、输入提示不再写「立即进入当前对话」）、审批日志基础版（`approvalLog` 默认关、key `dsh-approval-reason-dock:log:v1` schema v1、总量 200 / 每会话 100 上限、查看/过滤/导出/清空、内置卡决定记「结果未知」、只本机不上传）、更新检查（`updateCheck` 默认关、只查 npm registry 的包名与版本号、semver 比较、只提示更新命令不安装、缓存 1 小时、失败静默）、设置六字段与 0.2.0 旧存储迁移；harness 457/457；`engines.dsh` / `exports.inject` / `dsh.client.inject` / `index.js` 不变；README / CHANGELOG / MAINTENANCE / ALLOW-WITH-NOTE / locale / 预览图源文件同步 |
 
 ## 十一、参考
 

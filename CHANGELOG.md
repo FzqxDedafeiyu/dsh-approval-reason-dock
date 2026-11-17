@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The settings section now has six controls: the two 0.2.0 switches, delivered
   notices + duration, the approval log and the update check. Existing 0.2.0
   storage keeps the user's choices; missing fields fall back to defaults.
-- The test harness grew from 309 to **451 checks**, covering the notice queue,
+- The test harness grew from 309 to **457 checks**, covering the notice queue,
   the log store/filters/export, the update checker and semver comparison.
 
 ### Changed
