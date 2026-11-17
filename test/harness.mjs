@@ -272,6 +272,7 @@ check(
     "recordLogAsked",
     "recordLogDecided",
     "recordLogSessionTitle",
+    "shouldRecordLostApproval",
     "clearLog",
     "filterLogEntries",
     "formatLogExport",
@@ -1338,6 +1339,22 @@ console.log("approval log");
 
     internals.recordLogDecided("approval:k1", { outcome: "unknown", via: "unknown" });
     equal("a decided entry is never overwritten", internals.getLogEntries()[0].outcome, "allowed-once");
+
+    // Real-machine race: the host may push the status change synchronously
+    // inside `await answer()`, so a bogus "unknown" record can land first. A
+    // later panel decision must upgrade it instead of being dropped.
+    internals.recordLogAsked({ id: "approval:race", sessionId: "s1", toolName: "pwsh" });
+    internals.recordLogDecided("approval:race", { outcome: "unknown", via: "unknown" });
+    internals.recordLogDecided("approval:race", { outcome: "allowed-once", via: "panel", note: "计时测试", noteMode: "steer" });
+    const raceEntry = internals.getLogEntries().find((entry) => entry.id === "approval:race");
+    equal("a panel decision upgrades an unknown entry", [raceEntry.outcome, raceEntry.via], ["allowed-once", "panel"]);
+    equal("the upgraded entry keeps the note", [raceEntry.note, raceEntry.noteMode], ["计时测试", "steer"]);
+    internals.recordLogDecided("approval:race", { outcome: "rejected", via: "panel" });
+    equal("an upgraded entry is not overwritten again", internals.getLogEntries().find((entry) => entry.id === "approval:race").outcome, "allowed-once");
+
+    check("lost approvals skip the approval being answered", internals.shouldRecordLostApproval("approval:3", "approval:3") === false);
+    check("lost approvals still record other approvals", internals.shouldRecordLostApproval("approval:3", "approval:4") === true);
+    check("lost approvals need a key", internals.shouldRecordLostApproval(undefined, undefined) === false);
 
     internals.recordLogAsked({ id: "approval:k2", sessionId: "s1", toolName: "edit" });
     internals.recordLogDecided("approval:k2", { outcome: "rejected", via: "panel", note: "先别发" });

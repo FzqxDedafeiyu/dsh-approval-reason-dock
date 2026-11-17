@@ -196,7 +196,7 @@ dsh plugin --profile web add github:FzqxDedafeiyu/dsh-approval-reason-dock
 node test/harness.mjs
 ```
 
-`node test/harness.mjs` 共 451 项检查：校验清单/打包形态、加载真实的 `client.js` factory，并在假的 React/Cordis/槽环境里驱动完整的审批流程——允许/拒绝（带与不带说明）、说明先于审批作答、steer→queue 降级、允许二次确认视图（取消、`Esc`、`Enter`、重复点击只提交一次）、投递失败的阻塞路径、设置 store 与设置区（默认值、持久化、开关交互、六字段 schema 与 0.2.0 旧存储迁移）、两个开关下的允许行为矩阵、送达提醒队列（steer/queue 文案、最多两条、重新计时）、本机审批日志 store（上限、合并、过滤、导出、损坏存储回落）、更新检查与 semver 比较、审批已被别处处理，以及 i18n/浮层渲染。组件交互用 `react-test-renderer` 渲染（仅测试依赖）。`npm run pack:check` 校验实际发布文件清单。
+`node test/harness.mjs` 共 457 项检查：校验清单/打包形态、加载真实的 `client.js` factory，并在假的 React/Cordis/槽环境里驱动完整的审批流程——允许/拒绝（带与不带说明）、说明先于审批作答、steer→queue 降级、允许二次确认视图（取消、`Esc`、`Enter`、重复点击只提交一次）、投递失败的阻塞路径、设置 store 与设置区（默认值、持久化、开关交互、六字段 schema 与 0.2.0 旧存储迁移）、两个开关下的允许行为矩阵、送达提醒队列（steer/queue 文案、最多两条、重新计时）、本机审批日志 store（上限、合并、过滤、导出、损坏存储回落）、更新检查与 semver 比较、审批已被别处处理，以及 i18n/浮层渲染。组件交互用 `react-test-renderer` 渲染（仅测试依赖）。`npm run pack:check` 校验实际发布文件清单。
 
 仓库结构：
 

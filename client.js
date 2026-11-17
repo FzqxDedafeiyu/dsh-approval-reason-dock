@@ -764,6 +764,13 @@ window.__ModuleLoader__.load({
 			return entry;
 		}
 
+		/** True when a disappeared approval should be logged as an external decision. */
+		function shouldRecordLostApproval(lostKey, answeringKey) {
+			if (typeof lostKey !== "string" || lostKey === "") return false;
+			if (typeof answeringKey !== "string" || answeringKey === "") return true;
+			return lostKey !== answeringKey;
+		}
+
 		/** Record a newly seen approval (only when the log switch is on). */
 		function recordLogAsked(input) {
 			if (cachedSettings.approvalLog !== true) return undefined;
@@ -786,15 +793,17 @@ window.__ModuleLoader__.load({
 			});
 		}
 
-		/** Fill the decided fields; a decided entry is never overwritten. */
+		/** Fill the decided fields; a decided entry is never downgraded. */
 		function recordLogDecided(id, patch) {
 			if (cachedSettings.approvalLog !== true) return undefined;
 			const index = cachedLog.findIndex((entry) => entry.id === id);
 			if (index < 0) return undefined;
 			const current = cachedLog[index];
-			if (typeof current.decidedAt === "number") return current;
 			const source = patch === null || typeof patch !== "object" ? {} : patch;
-			const decidedAt = typeof source.decidedAt === "number" ? source.decidedAt : Date.now();
+			const isUpgrade = typeof current.decidedAt === "number" && current.via === "unknown" && source.via === "panel";
+			if (typeof current.decidedAt === "number" && !isUpgrade) return current;
+			const decidedAt =
+				typeof source.decidedAt === "number" ? source.decidedAt : typeof current.decidedAt === "number" ? current.decidedAt : Date.now();
 			const updated = {
 				...current,
 				outcome: source.outcome === "allowed-once" || source.outcome === "rejected" ? source.outcome : "unknown",
@@ -1197,6 +1206,13 @@ window.__ModuleLoader__.load({
 			const [delivered, setDelivered] = React.useState([]);
 			const deliveredTimer = React.useRef(undefined);
 			const lostKey = React.useRef(undefined);
+			// Key the plugin is currently answering. The host may push the approval
+			// status change synchronously inside `await answer()`, which would let
+			// the "approval disappeared" effect write a bogus `unknown` outcome
+			// before the success path records the real one — so the effect skips the
+			// key we are answering (and the store also refuses to downgrade a panel
+			// decision that arrives second).
+			const answeringKey = React.useRef(undefined);
 
 			const clearDeliveredTimer = React.useCallback(() => {
 				if (deliveredTimer.current === undefined) return;
@@ -1281,11 +1297,13 @@ window.__ModuleLoader__.load({
 				// The panel answered nothing yet the approval disappeared while its
 				// session stayed current: the built-in card handled it. Record the
 				// honest "unknown" outcome once; an entry the plugin already decided
-				// is never overwritten.
+				// is never overwritten, and the approval the plugin is currently
+				// answering is never misread as "handled elsewhere".
 				if (approval !== undefined || lostKey.current === undefined) return;
 				const lost = lostKey.current;
 				lostKey.current = undefined;
 				if (lost.sessionId !== currentSessionId) return;
+				if (shouldRecordLostApproval(lost.key, answeringKey.current) !== true) return;
 				recordLogDecided(lost.key, { outcome: "unknown", via: "unknown", decidedAt: Date.now() });
 			}, [approval, currentSessionId]);
 
@@ -1310,51 +1328,58 @@ window.__ModuleLoader__.load({
 					const target = approval === undefined ? lastTarget.current : approval;
 					if (target === undefined) return;
 					submittingRef.current = true;
+					answeringKey.current = target.key;
 					setBusy(true);
-					const reason = withNote ? normalizeReason(draft) : "";
-					const prefix = outcome === "allowed-once" ? t("allowPrefix") : t("reasonPrefix");
-					let result;
 					try {
-						result = await answerApproval(target, remote, prefix, reason, outcome);
-					} catch {
-						result = { answered: false };
-					}
-					submittingRef.current = false;
-					setBusy(false);
-					if (result.answered !== true) {
-						// Delivery failed: the approval is still pending and the note is
-						// kept, so the user can retry from the input view. An approval
-						// handled elsewhere has nothing left to retry: clear the draft.
-						if (result.delivery !== undefined && result.delivery.mode === "failed") {
+						const reason = withNote ? normalizeReason(draft) : "";
+						const prefix = outcome === "allowed-once" ? t("allowPrefix") : t("reasonPrefix");
+						let result;
+						try {
+							result = await answerApproval(target, remote, prefix, reason, outcome);
+						} catch {
+							result = { answered: false };
+						}
+						if (result.answered !== true) {
+							// Delivery failed: the approval is still pending and the note is
+							// kept, so the user can retry from the input view. An approval
+							// handled elsewhere has nothing left to retry: clear the draft.
+							if (result.delivery !== undefined && result.delivery.mode === "failed") {
+								setView("input");
+								setNotice({ kind: "error", text: t("deliveryFailed", { error: result.delivery.error }) });
+								return;
+							}
+							lastTarget.current = undefined;
+							rememberDraft(target.key, "");
+							setDraft("");
+							setNotice(null);
 							setView("input");
-							setNotice({ kind: "error", text: t("deliveryFailed", { error: result.delivery.error }) });
 							return;
 						}
+						// Answered: clear the draft and drop the panel with the approval.
 						lastTarget.current = undefined;
 						rememberDraft(target.key, "");
 						setDraft("");
 						setNotice(null);
 						setView("input");
-						return;
+						setCollapsed(false);
+						const deliveryMode =
+							result.delivery !== undefined && result.delivery.mode !== "failed" ? result.delivery.mode : undefined;
+						// Allow side only: a delivered allow-with-note queues one notice.
+						if (outcome === "allowed-once" && deliveryMode !== undefined) pushDelivered(deliveryMode);
+						recordLogDecided(target.key, {
+							outcome,
+							via: "panel",
+							note: reason,
+							noteMode: deliveryMode,
+							decidedAt: Date.now(),
+						});
+					} finally {
+						// Clear only after the log write: the lost-approval effect runs
+						// during the await and must see the key as "being answered".
+						submittingRef.current = false;
+						answeringKey.current = undefined;
+						setBusy(false);
 					}
-					// Answered: clear the draft and drop the panel with the approval.
-					lastTarget.current = undefined;
-					rememberDraft(target.key, "");
-					setDraft("");
-					setNotice(null);
-					setView("input");
-					setCollapsed(false);
-					const deliveryMode =
-						result.delivery !== undefined && result.delivery.mode !== "failed" ? result.delivery.mode : undefined;
-					// Allow side only: a delivered allow-with-note queues one notice.
-					if (outcome === "allowed-once" && deliveryMode !== undefined) pushDelivered(deliveryMode);
-					recordLogDecided(target.key, {
-						outcome,
-						via: "panel",
-						note: reason,
-						noteMode: deliveryMode,
-						decidedAt: Date.now(),
-					});
 				},
 				[approval, busy, draft, pushDelivered, remote, t],
 			);
@@ -1981,6 +2006,7 @@ window.__ModuleLoader__.load({
 			recordLogAsked,
 			recordLogDecided,
 			recordLogSessionTitle,
+			shouldRecordLostApproval,
 			clearLog,
 			handleLogStorageEvent,
 			filterLogEntries,
