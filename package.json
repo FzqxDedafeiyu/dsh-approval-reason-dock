@@ -1,7 +1,7 @@
 {
   "name": "dsh-approval-reason-dock",
-  "version": "0.2.0",
-  "description": "Adds an optional note to DSH approval prompts (allow or reject) and confirms every allow before it runs; the built-in approval card and DSH's security architecture stay untouched.",
+  "version": "0.3.0",
+  "description": "Adds an optional note to DSH approval prompts (allow or reject) and confirms every allow before it runs; opt-in delivered-notice feedback, a local approval log and an update check stay off the built-in card and DSH's security architecture.",
   "type": "module",
   "license": "MIT",
   "main": "index.js",

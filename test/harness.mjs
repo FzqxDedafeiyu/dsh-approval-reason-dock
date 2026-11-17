@@ -128,6 +128,7 @@ equal("locale dictionaries keep the same key set", Object.keys(internals.zh).sor
 check("both dictionaries fill every key", Object.values(internals.zh).every((value) => typeof value === "string" && value.length > 0) && Object.values(internals.en).every((value) => typeof value === "string" && value.length > 0));
 
 const expectedKeys = [
+  // 0.2.0 overlay + settings section
   "title",
   "hint",
   "placeholder",
@@ -159,7 +160,6 @@ const expectedKeys = [
   "ariaInput",
   "ariaPanel",
   "ariaConfirmPanel",
-  // 0.2.0 settings section
   "settingsNav",
   "settingsTitle",
   "settingsIntro",
@@ -174,9 +174,52 @@ const expectedKeys = [
   "settingsDefaultNote",
   "allowNoteDisabledHint",
   "settingsToggleAria",
+  // 0.3.0 delivered notices
+  "allowNoticeLabel",
+  "allowNoticeDesc",
+  "allowNoticeRiskOn",
+  "allowNoticeRiskOff",
+  "allowNoticeMsLabel",
+  "allowNoticeMsDesc",
+  // 0.3.0 approval log
+  "approvalLogLabel",
+  "approvalLogDesc",
+  "approvalLogRiskOn",
+  "approvalLogRiskOff",
+  "logSectionTitle",
+  "logEmpty",
+  "logCount",
+  "logFilterAll",
+  "logFilterAllowed",
+  "logFilterRejected",
+  "logFilterUnknown",
+  "logExport",
+  "logClear",
+  "logHint",
+  "logViaPanel",
+  "logViaUnknown",
+  "logOutcomeAllowed",
+  "logOutcomeRejected",
+  "logOutcomeUnknown",
+  "logOutcomePending",
+  "logNotePrefix",
+  "logReasonPrefix",
+  "logSession",
+  "logExportFailed",
+  // 0.3.0 update check
+  "updateCheckLabel",
+  "updateCheckDesc",
+  "updateCheckRiskOn",
+  "updateCheckRiskOff",
+  "updateCheckButton",
+  "updateChecking",
+  "updateUpToDate",
+  "updateAvailable",
+  "updateFailed",
+  "updateDisabledHint",
 ];
-equal("zh dictionary uses the 0.2.0 key set", Object.keys(internals.zh).sort(), [...expectedKeys].sort());
-equal("en dictionary uses the 0.2.0 key set", Object.keys(internals.en).sort(), [...expectedKeys].sort());
+equal("zh dictionary uses the 0.3.0 key set", Object.keys(internals.zh).sort(), [...expectedKeys].sort());
+equal("en dictionary uses the 0.3.0 key set", Object.keys(internals.en).sort(), [...expectedKeys].sort());
 check("old send/plain keys are gone", internals.zh.send === undefined && internals.zh.plain === undefined && internals.en.send === undefined && internals.en.plain === undefined);
 check("en allow/reason prefixes keep the trailing space", internals.en.allowPrefix.endsWith(" ") && internals.en.reasonPrefix.endsWith(" "));
 check("allowPrefix marks the allow note", internals.zh.allowPrefix === "（审批同意说明）");
@@ -184,15 +227,67 @@ check("confirm copy preserves the authorization scope", internals.zh.confirmBody
 check("partialAgreementHint points at reject with note", internals.zh.partialAgreementHint.includes("拒绝并说明"));
 check(
   "settings dictionaries carry both risk directions",
-  ["allowNoteRiskOn", "allowNoteRiskOff", "confirmAllowRiskOn", "confirmAllowRiskOff"].every(
-    (key) => typeof internals.zh[key] === "string" && typeof internals.en[key] === "string",
-  ),
+  [
+    "allowNoteRiskOn",
+    "allowNoteRiskOff",
+    "confirmAllowRiskOn",
+    "confirmAllowRiskOff",
+    "allowNoticeRiskOn",
+    "allowNoticeRiskOff",
+    "approvalLogRiskOn",
+    "approvalLogRiskOff",
+    "updateCheckRiskOn",
+    "updateCheckRiskOff",
+  ].every((key) => typeof internals.zh[key] === "string" && typeof internals.en[key] === "string"),
 );
 check("settings intro says reject is unaffected", internals.zh.settingsIntro.includes("拒绝带理由始终可用") && internals.en.settingsIntro.includes("Reject with a note always works"));
+check("settings intro names the 0.3.0 switches", internals.zh.settingsIntro.includes("送达提醒") && internals.zh.settingsIntro.includes("审批日志") && internals.zh.settingsIntro.includes("更新检查") && internals.en.settingsIntro.includes("delivered notices") && internals.en.settingsIntro.includes("update checks"));
 check("note-disabled hint names the switch", internals.zh.allowNoteDisabledHint.includes("允许时带话") && internals.en.allowNoteDisabledHint.includes("Allow with note"));
 check("toggle aria template carries the name placeholder", internals.zh.settingsToggleAria.includes("{name}") && internals.en.settingsToggleAria.includes("{name}"));
-check("settings defaults keep both features on", internals.DEFAULT_SETTINGS.allowNote === true && internals.DEFAULT_SETTINGS.confirmAllow === true);
+check("delivered copy states next-step visibility", internals.zh.deliveredSteer.includes("下一步模型可见") && internals.en.deliveredSteer.includes("next step"));
+check("delivered copy drops the old immediate-visibility claim", !internals.zh.deliveredSteer.includes("已进入当前对话") && !internals.zh.hint.includes("立即进入当前对话") && !internals.en.hint.includes("immediately"));
+check("queue copy names the steer downgrade", internals.zh.deliveredQueue.includes("steer 降级") && internals.en.deliveredQueue.includes("steer downgraded"));
+check(
+  "settings defaults: notices on at 3 s, log and updates off",
+  internals.DEFAULT_SETTINGS.allowNote === true &&
+    internals.DEFAULT_SETTINGS.confirmAllow === true &&
+    internals.DEFAULT_SETTINGS.allowNotice === true &&
+    internals.DEFAULT_SETTINGS.allowNoticeMs === 3000 &&
+    internals.DEFAULT_SETTINGS.approvalLog === false &&
+    internals.DEFAULT_SETTINGS.updateCheck === false,
+);
 check("settings key is namespaced", internals.SETTINGS_KEY === "dsh-approval-reason-dock:settings");
+check(
+  "0.3.0 internals are exported",
+  [
+    "normalizeNoticeMs",
+    "pushNotice",
+    "noticeTextKey",
+    "deliveredNoticeBlock",
+    "LOG_KEY",
+    "LOG_MAX_TOTAL",
+    "readStoredLog",
+    "getLogEntries",
+    "subscribeLog",
+    "recordLogAsked",
+    "recordLogDecided",
+    "recordLogSessionTitle",
+    "clearLog",
+    "filterLogEntries",
+    "formatLogExport",
+    "formatLogTime",
+    "PLUGIN_VERSION",
+    "UPDATE_REGISTRY_URL",
+    "UPDATE_COMMAND",
+    "parseSemver",
+    "compareSemver",
+    "semverGt",
+    "checkForUpdate",
+  ].every((name) => internals[name] !== undefined),
+);
+check("plugin version matches package.json", internals.PLUGIN_VERSION === pkg.version, `${internals.PLUGIN_VERSION} != ${pkg.version}`);
+check("update command targets the npm package", internals.UPDATE_COMMAND.includes("dsh-approval-reason-dock@latest"), internals.UPDATE_COMMAND);
+check("update registry URL points at npm", internals.UPDATE_REGISTRY_URL === "https://registry.npmjs.org/dsh-approval-reason-dock/latest", internals.UPDATE_REGISTRY_URL);
 
 /* -------------------------------------------------------------- helpers */
 
@@ -818,37 +913,63 @@ function setSettings(patch) {
   });
 }
 
+/** Full settings object with the given overrides (schema v2). */
+const settingsWith = (patch) => ({ ...internals.DEFAULT_SETTINGS, ...patch });
+
 {
   const scriptedStorage = fakeStorage();
   const originalLocalStorage = globalThis.localStorage;
   let storageInstalled = false;
   try {
-    equal("settings default to on/on", internals.getSettings(), { allowNote: true, confirmAllow: true });
-    equal("reading settings without localStorage returns defaults", internals.readStoredSettings(), { allowNote: true, confirmAllow: true });
+    equal("settings default to the schema v2 object", internals.getSettings(), settingsWith({}));
+    equal("reading settings without localStorage returns defaults", internals.readStoredSettings(), settingsWith({}));
 
     globalThis.localStorage = scriptedStorage;
     storageInstalled = true;
-    equal("missing stored settings fall back to defaults", internals.readStoredSettings(), { allowNote: true, confirmAllow: true });
+    equal("missing stored settings fall back to defaults", internals.readStoredSettings(), settingsWith({}));
 
     scriptedStorage.map.set(internals.SETTINGS_KEY, "{not json");
-    equal("malformed JSON falls back to defaults", internals.readStoredSettings(), { allowNote: true, confirmAllow: true });
+    equal("malformed JSON falls back to defaults", internals.readStoredSettings(), settingsWith({}));
 
     scriptedStorage.map.set(internals.SETTINGS_KEY, "[]");
-    equal("non-object JSON falls back to defaults", internals.readStoredSettings(), { allowNote: true, confirmAllow: true });
+    equal("non-object JSON falls back to defaults", internals.readStoredSettings(), settingsWith({}));
 
     scriptedStorage.map.set(internals.SETTINGS_KEY, '{"allowNote":"yes","confirmAllow":0}');
-    equal("non-boolean fields fall back to defaults", internals.readStoredSettings(), { allowNote: true, confirmAllow: true });
+    equal("non-boolean fields fall back to defaults", internals.readStoredSettings(), settingsWith({}));
 
     scriptedStorage.map.set(internals.SETTINGS_KEY, '{"allowNote":false,"extra":1}');
-    equal("partial stored settings merge with defaults and ignore extras", internals.readStoredSettings(), { allowNote: false, confirmAllow: true });
+    equal("partial stored settings merge with defaults and ignore extras", internals.readStoredSettings(), settingsWith({ allowNote: false }));
+
+    scriptedStorage.map.set(internals.SETTINGS_KEY, '{"allowNote":false,"confirmAllow":false}');
+    equal("0.2.0 stored settings migrate to 0.3.0 defaults", internals.readStoredSettings(), settingsWith({ allowNote: false, confirmAllow: false }));
+
+    scriptedStorage.map.set(internals.SETTINGS_KEY, '{"allowNoticeMs":20000}');
+    equal("stored notice duration above range is clamped", internals.readStoredSettings().allowNoticeMs, 10000);
+
+    scriptedStorage.map.set(internals.SETTINGS_KEY, '{"allowNoticeMs":500}');
+    equal("stored notice duration below range is clamped", internals.readStoredSettings().allowNoticeMs, 1000);
+
+    scriptedStorage.map.set(internals.SETTINGS_KEY, '{"allowNoticeMs":"3000"}');
+    equal("stored notice duration must be a number", internals.readStoredSettings().allowNoticeMs, 3000);
+
+    scriptedStorage.map.set(internals.SETTINGS_KEY, '{"approvalLog":true,"updateCheck":true}');
+    equal("stored 0.3.0 switches are read", [internals.readStoredSettings().approvalLog, internals.readStoredSettings().updateCheck], [true, true]);
+
+    equal("normalizeNoticeMs keeps 3 s", internals.normalizeNoticeMs(3000), 3000);
+    equal("normalizeNoticeMs rounds to whole seconds", internals.normalizeNoticeMs(2500), 3000);
+    equal("normalizeNoticeMs clamps low", internals.normalizeNoticeMs(0), 1000);
+    equal("normalizeNoticeMs clamps high", internals.normalizeNoticeMs(999999), 10000);
+    equal("normalizeNoticeMs falls back for strings", internals.normalizeNoticeMs("7"), 3000);
+    equal("normalizeNoticeMs falls back for NaN", internals.normalizeNoticeMs(Number.NaN), 3000);
 
     scriptedStorage.map.set(internals.SETTINGS_KEY, '{"allowNote":true,"confirmAllow":true}');
-    equal("updateSettings patches one field", internals.updateSettings({ allowNote: false }), { allowNote: false, confirmAllow: true });
-    equal("updateSettings keeps the new memory value", internals.getSettings(), { allowNote: false, confirmAllow: true });
-    equal("updateSettings persists to localStorage", JSON.parse(scriptedStorage.map.get(internals.SETTINGS_KEY)), {
-      allowNote: false,
-      confirmAllow: true,
-    });
+    equal("updateSettings patches one field", internals.updateSettings({ allowNote: false }), settingsWith({ allowNote: false }));
+    equal("updateSettings keeps the new memory value", internals.getSettings(), settingsWith({ allowNote: false }));
+    equal("updateSettings persists all six fields", JSON.parse(scriptedStorage.map.get(internals.SETTINGS_KEY)), settingsWith({ allowNote: false }));
+
+    equal("updateSettings clamps the duration patch", internals.updateSettings({ allowNoticeMs: 12000 }).allowNoticeMs, 10000);
+    equal("updateSettings keeps other fields on a duration patch", internals.getSettings(), settingsWith({ allowNote: false, allowNoticeMs: 10000 }));
+    equal("updateSettings accepts the 0.3.0 switches", internals.updateSettings({ approvalLog: true, updateCheck: true }), settingsWith({ allowNote: false, allowNoticeMs: 10000, approvalLog: true, updateCheck: true }));
 
     let notified = 0;
     const unsubscribe = internals.subscribe(() => {
@@ -869,7 +990,7 @@ function setSettings(patch) {
     const afterOtherKey = internals.handleStorageEvent({ key: "some-other-key" });
     check("storage events for other keys are ignored", afterOtherKey === beforeOtherKey && synced === 0);
     internals.handleStorageEvent({ key: internals.SETTINGS_KEY });
-    equal("storage event syncs settings from localStorage", internals.getSettings(), { allowNote: false, confirmAllow: false });
+    equal("storage event syncs settings from localStorage", internals.getSettings(), settingsWith({ allowNote: false, confirmAllow: false }));
     equal("storage event notifies subscribers once", synced, 1);
     internals.handleStorageEvent({ key: internals.SETTINGS_KEY });
     equal("unchanged storage data does not re-notify", synced, 1);
@@ -882,17 +1003,14 @@ function setSettings(patch) {
       },
       removeItem() {},
     };
-    equal("persistence failure keeps the in-memory value", internals.updateSettings({ allowNote: true, confirmAllow: true }), {
-      allowNote: true,
-      confirmAllow: true,
-    });
-    equal("persistence failure still notifies memory readers", internals.getSettings(), { allowNote: true, confirmAllow: true });
+    equal("persistence failure keeps the in-memory value", internals.updateSettings({ allowNote: true, confirmAllow: true }), settingsWith({ allowNote: true, confirmAllow: true }));
+    equal("persistence failure still notifies memory readers", internals.getSettings(), settingsWith({ allowNote: true, confirmAllow: true }));
   } finally {
     if (storageInstalled) {
       if (originalLocalStorage === undefined) delete globalThis.localStorage;
       else globalThis.localStorage = originalLocalStorage;
     }
-    internals.updateSettings({ allowNote: true, confirmAllow: true });
+    internals.updateSettings(internals.DEFAULT_SETTINGS);
   }
 }
 
@@ -901,7 +1019,7 @@ function setSettings(patch) {
 console.log("settings section");
 
 {
-  setSettings({ allowNote: true, confirmAllow: true });
+  setSettings(internals.DEFAULT_SETTINGS);
   let zhSettings;
   act(() => {
     zhSettings = TestRenderer.create(React.createElement(internals.SettingsSection, { t: zhText }));
@@ -917,12 +1035,34 @@ console.log("settings section");
   includes("settings section shows the confirmation description", zhSettingsText, "点允许后先在面板内二次确认");
   includes("settings section shows the confirmation on-risk", zhSettingsText, "开启时：每次允许多一步操作");
   includes("settings section shows the confirmation off-risk", zhSettingsText, "关闭时：点允许会立即执行工具调用");
-  includes("settings section shows the default note", zhSettingsText, "两项默认开启");
-  const zhBoxes = zhSettings.root.findAllByType("input");
-  equal("settings section renders two checkboxes", zhBoxes.length, 2);
-  check("settings checkboxes default to checked", zhBoxes.every((box) => box.props.checked === true));
-  equal("allow-note checkbox aria label", zhBoxes[0]?.props["aria-label"], "允许时带话 开关");
-  equal("confirmation checkbox aria label", zhBoxes[1]?.props["aria-label"], "允许二次确认 开关");
+  includes("settings section shows the delivered-notice label", zhSettingsText, "允许说明送达提醒");
+  includes("settings section shows the delivered-notice risk copy", zhSettingsText, "恢复 0.2.0 行为");
+  includes("settings section shows the notice duration label", zhSettingsText, "提示显示时长（秒）");
+  includes("settings section shows the approval-log label", zhSettingsText, "审批日志");
+  includes("settings section shows the approval-log risk copy", zhSettingsText, "不上传");
+  includes("settings section shows the update-check label", zhSettingsText, "检查新版本");
+  includes("settings section shows the update-disabled hint", zhSettingsText, "不会联网检查");
+  includes("settings section shows the default note", zhSettingsText, "0.2.0 两项与送达提醒默认开启");
+  check("settings section hides the log panel while logging is off", !zhSettingsText.includes("暂无记录") && !zhSettingsText.includes("导出 JSON"));
+  const zhInputs = zhSettings.root.findAllByType("input");
+  const zhCheckboxes = zhInputs.filter((node) => node.props.type === "checkbox");
+  equal("settings section renders five checkboxes", zhCheckboxes.length, 5);
+  equal("settings section renders one duration input", zhInputs.length, 6);
+  check(
+    "0.2.0 switches and delivered notices default to checked",
+    zhCheckboxes[0]?.props.checked === true && zhCheckboxes[1]?.props.checked === true && zhCheckboxes[2]?.props.checked === true,
+  );
+  check(
+    "approval log and update check default to unchecked",
+    zhCheckboxes[3]?.props.checked === false && zhCheckboxes[4]?.props.checked === false,
+  );
+  equal("allow-note checkbox aria label", zhCheckboxes[0]?.props["aria-label"], "允许时带话 开关");
+  equal("confirmation checkbox aria label", zhCheckboxes[1]?.props["aria-label"], "允许二次确认 开关");
+  equal("delivered-notice checkbox aria label", zhCheckboxes[2]?.props["aria-label"], "允许说明送达提醒 开关");
+  equal("duration input starts at 3 seconds", zhInputs[3]?.props.value, "3");
+  equal("duration input is enabled while notices are on", zhInputs[3]?.props.disabled, false);
+  equal("approval-log checkbox aria label", zhCheckboxes[3]?.props["aria-label"], "审批日志 开关");
+  equal("update-check checkbox aria label", zhCheckboxes[4]?.props["aria-label"], "检查新版本 开关");
 
   let enSettings;
   act(() => {
@@ -933,8 +1073,21 @@ console.log("settings section");
   includes("en settings section shows the allow-note label", enSettingsText, "Allow with note");
   includes("en settings section shows the confirmation label", enSettingsText, "Allow confirmation");
   includes("en settings section shows risk copy", enSettingsText, "no second line of defense against misclicks");
-  includes("en settings section shows the default note", enSettingsText, "Both default to on");
+  includes("en settings section shows the delivered-notice label", enSettingsText, "Delivered-notice feedback");
+  includes("en settings section shows the approval-log label", enSettingsText, "Approval log");
+  includes("en settings section shows the update-check label", enSettingsText, "Check for updates");
+  includes("en settings section shows the default note", enSettingsText, "delivered notices default to on");
   equal("en confirmation checkbox aria label", enSettings.root.findAllByType("input")[1]?.props["aria-label"], "Allow confirmation toggle");
+
+  act(() => {
+    zhSettings.update(React.createElement(internals.SettingsSection, { t: zhText }));
+  });
+  setSettings({ allowNotice: false });
+  act(() => {
+    zhSettings.update(React.createElement(internals.SettingsSection, { t: zhText }));
+  });
+  equal("duration input is disabled when notices are off", zhSettings.root.findAllByType("input")[3]?.props.disabled, true);
+  setSettings(internals.DEFAULT_SETTINGS);
 }
 
 {
@@ -942,37 +1095,443 @@ console.log("settings section");
   const originalLocalStorage = globalThis.localStorage;
   globalThis.localStorage = scriptedStorage;
   try {
-    setSettings({ allowNote: true, confirmAllow: true });
+    setSettings(internals.DEFAULT_SETTINGS);
     let settingsRenderer;
     act(() => {
       settingsRenderer = TestRenderer.create(React.createElement(internals.SettingsSection, { t: zhText }));
     });
+    const inputs = () => settingsRenderer.root.findAllByType("input");
 
-    let boxes = settingsRenderer.root.findAllByType("input");
+    let boxes = inputs();
     act(() => {
       boxes[0].props.onChange({ target: { checked: false } });
     });
     equal("toggling allow-note updates the store", internals.getSettings().allowNote, false);
     equal("toggling allow-note persists", JSON.parse(scriptedStorage.map.get(internals.SETTINGS_KEY)).allowNote, false);
-    check("allow-note checkbox re-renders unchecked", settingsRenderer.root.findAllByType("input")[0].props.checked === false);
+    check("allow-note checkbox re-renders unchecked", inputs()[0].props.checked === false);
 
-    boxes = settingsRenderer.root.findAllByType("input");
     act(() => {
-      boxes[1].props.onChange({ target: { checked: false } });
+      inputs()[1].props.onChange({ target: { checked: false } });
     });
     equal("toggling confirmation updates the store", internals.getSettings().confirmAllow, false);
     equal("toggling confirmation persists", JSON.parse(scriptedStorage.map.get(internals.SETTINGS_KEY)).confirmAllow, false);
-    check("confirmation checkbox re-renders unchecked", settingsRenderer.root.findAllByType("input")[1].props.checked === false);
+    check("confirmation checkbox re-renders unchecked", inputs()[1].props.checked === false);
 
     act(() => {
-      settingsRenderer.root.findAllByType("input")[0].props.onChange({ target: { checked: true } });
+      inputs()[2].props.onChange({ target: { checked: false } });
+    });
+    equal("toggling delivered notices updates the store", internals.getSettings().allowNotice, false);
+    equal("toggling delivered notices persists", JSON.parse(scriptedStorage.map.get(internals.SETTINGS_KEY)).allowNotice, false);
+    check("duration input disables with notices off", inputs()[3].props.disabled === true);
+
+    act(() => {
+      inputs()[2].props.onChange({ target: { checked: true } });
+    });
+    check("duration input re-enables with notices on", inputs()[3].props.disabled === false);
+
+    act(() => {
+      inputs()[3].props.onChange({ target: { value: "7" } });
+    });
+    equal("changing the duration stores milliseconds", internals.getSettings().allowNoticeMs, 7000);
+    equal("changing the duration persists", JSON.parse(scriptedStorage.map.get(internals.SETTINGS_KEY)).allowNoticeMs, 7000);
+    equal("duration input re-renders the new value", inputs()[3].props.value, "7");
+
+    act(() => {
+      inputs()[3].props.onChange({ target: { value: "99" } });
+    });
+    equal("out-of-range duration is clamped on write", internals.getSettings().allowNoticeMs, 10000);
+    act(() => {
+      inputs()[3].props.onChange({ target: { value: "" } });
+    });
+    equal("empty duration input keeps the stored value", internals.getSettings().allowNoticeMs, 10000);
+
+    act(() => {
+      inputs()[4].props.onChange({ target: { checked: true } });
+    });
+    equal("toggling the approval log updates the store", internals.getSettings().approvalLog, true);
+    equal("toggling the approval log persists", JSON.parse(scriptedStorage.map.get(internals.SETTINGS_KEY)).approvalLog, true);
+    check("enabling the log reveals the viewer", textOf(settingsRenderer).includes("暂无记录"));
+
+    act(() => {
+      inputs()[4].props.onChange({ target: { checked: false } });
+    });
+    check("disabling the log hides the viewer", !textOf(settingsRenderer).includes("暂无记录"));
+
+    act(() => {
+      inputs()[0].props.onChange({ target: { checked: true } });
     });
     equal("toggling allow-note back updates the store", internals.getSettings().allowNote, true);
-    check("allow-note checkbox re-renders checked", settingsRenderer.root.findAllByType("input")[0].props.checked === true);
+    check("allow-note checkbox re-renders checked", inputs()[0].props.checked === true);
   } finally {
     if (originalLocalStorage === undefined) delete globalThis.localStorage;
     else globalThis.localStorage = originalLocalStorage;
-    setSettings({ allowNote: true, confirmAllow: true });
+    setSettings(internals.DEFAULT_SETTINGS);
+  }
+}
+
+/* ------------------------------------------------------- delivered notices */
+
+console.log("delivered notices");
+
+equal("pushNotice adds to an empty queue", internals.pushNotice([], { id: "1", mode: "steer" }).length, 1);
+{
+  const queued = ["1", "2", "3"].reduce((list, id) => internals.pushNotice(list, { id, mode: "steer" }), []);
+  equal("pushNotice keeps only the newest two", queued.map((item) => item.id), ["2", "3"]);
+}
+equal("noticeTextKey maps steer", internals.noticeTextKey("steer"), "deliveredSteer");
+equal("noticeTextKey maps queue", internals.noticeTextKey("queue"), "deliveredQueue");
+equal("NOTICE_MAX is two", internals.NOTICE_MAX, 2);
+equal("NOTICE_WARN_ICON is the warning sign", internals.NOTICE_WARN_ICON, "⚠️");
+
+const steerNoticeMarkup = renderToStaticMarkup(React.createElement(React.Fragment, null, internals.deliveredNoticeBlock(zhText, { id: "n1", mode: "steer" })));
+includes("steer notice uses the next-step copy", steerNoticeMarkup, "当前步骤结束后插入对话");
+includes("steer notice marks its mode", steerNoticeMarkup, 'data-notice-mode="steer"');
+const queueNoticeMarkup = renderToStaticMarkup(React.createElement(React.Fragment, null, internals.deliveredNoticeBlock(zhText, { id: "n2", mode: "queue" })));
+includes("queue notice shows the warning icon", queueNoticeMarkup, "⚠️");
+includes("queue notice names the downgrade", queueNoticeMarkup, "steer 降级");
+includes("queue notice marks its mode", queueNoticeMarkup, 'data-notice-mode="queue"');
+
+{
+  setSettings({ ...internals.DEFAULT_SETTINGS, confirmAllow: false });
+  const events = [];
+  const target = makeTarget("approval:n-steer", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "只改 docs/");
+  await clickAsync(findButton(renderer, "允许并说明"));
+  rerenderDock(renderer, { target, remote, statusMap: new Map() });
+  let text = textOf(renderer);
+  includes("allow with note shows the delivered notice", text, "已送达");
+  includes("the delivered notice is the steer variant", text, "当前步骤结束后插入对话");
+  check("the delivered notice replaced the approval card", !text.includes("审批待处理"));
+  equal("the allow answered once", answerOutcomes(events), ["allowed-once"]);
+}
+
+{
+  // A queue downgrade renders the warning variant.
+  setSettings({ ...internals.DEFAULT_SETTINGS, confirmAllow: false });
+  const events = [];
+  const target = makeTarget("approval:n-queue", "pwsh", events);
+  const remote = eventRemote((request, index) => (index === 1 ? { ok: false, error: { code: "session/steer-unavailable" } } : { ok: true }), events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "先 dry-run");
+  await clickAsync(findButton(renderer, "允许并说明"));
+  rerenderDock(renderer, { target, remote, statusMap: new Map() });
+  const text = textOf(renderer);
+  includes("the queue fallback still shows a delivered notice", text, "已排队");
+  includes("the queue fallback warns with the icon", text, "⚠️");
+  includes("the queue fallback names the downgrade", text, "steer 降级");
+}
+
+{
+  // allowNotice off restores the 0.2.0 behavior: no notice at all.
+  setSettings({ ...internals.DEFAULT_SETTINGS, confirmAllow: false, allowNotice: false });
+  const events = [];
+  const target = makeTarget("approval:n-off", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "只改 docs/");
+  await clickAsync(findButton(renderer, "允许并说明"));
+  rerenderDock(renderer, { target, remote, statusMap: new Map() });
+  check("notices stay off when the switch is off", !textOf(renderer).includes("已送达") && !textOf(renderer).includes("已排队"));
+  equal("the allow still answers with notices off", answerOutcomes(events), ["allowed-once"]);
+}
+
+{
+  // Reject side is untouched: no delivered notice after a reject-with-note.
+  setSettings({ ...internals.DEFAULT_SETTINGS });
+  const events = [];
+  const target = makeTarget("approval:n-reject", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "先别发截图");
+  await clickAsync(findButton(renderer, "拒绝并说明"));
+  rerenderDock(renderer, { target, remote, statusMap: new Map() });
+  check("rejects never queue a delivered notice", !textOf(renderer).includes("已送达") && !textOf(renderer).includes("已排队"));
+  equal("the reject still answers", answerOutcomes(events), ["rejected"]);
+}
+
+{
+  // Delivery failure blocks the answer and never enters the queue.
+  setSettings({ ...internals.DEFAULT_SETTINGS, confirmAllow: false });
+  const events = [];
+  const target = makeTarget("approval:n-fail", "pwsh", events);
+  const remote = eventRemote({ ok: false, error: { code: "session/denied" } }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "只改 docs/");
+  await clickAsync(findButton(renderer, "允许并说明"));
+  const text = textOf(renderer);
+  includes("failed delivery keeps the panel notice", text, "说明发送失败");
+  check("failed delivery never becomes a delivered notice", !text.includes("已送达"));
+  equal("failed delivery answers nothing", answerOutcomes(events), []);
+}
+
+{
+  // Notices outlive a new approval card and a session switch.
+  setSettings({ ...internals.DEFAULT_SETTINGS, confirmAllow: false });
+  const events = [];
+  const target = makeTarget("approval:n-keep", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "只改 docs/");
+  await clickAsync(findButton(renderer, "允许并说明"));
+  const next = makeTarget("approval:n-next", "edit", []);
+  rerenderDock(renderer, {
+    target: next,
+    remote,
+    currentSessionId: "session-2",
+    statusMap: new Map([["session-2", { pendingInteraction: next.pending }]]),
+  });
+  const text = textOf(renderer);
+  includes("a new approval card is shown after the switch", text, "工具：edit");
+  includes("the earlier delivered notice survives the new card", text, "已送达");
+  check("the delivered notice is still the steer variant", text.includes("当前步骤结束后插入对话"));
+}
+
+{
+  // The duration setting drives the auto-close timer.
+  setSettings({ ...internals.DEFAULT_SETTINGS, confirmAllow: false, allowNoticeMs: 1000 });
+  const events = [];
+  const target = makeTarget("approval:n-timer", "pwsh", events);
+  const remote = eventRemote({ ok: true }, events);
+  const renderer = mountDock({ target, remote });
+  typeNote(renderer, "只改 docs/");
+  await clickAsync(findButton(renderer, "允许并说明"));
+  rerenderDock(renderer, { target, remote, statusMap: new Map() });
+  includes("the notice is visible before the timer", textOf(renderer), "已送达");
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+  });
+  check("the notice auto-closes after the configured duration", !textOf(renderer).includes("已送达"));
+  act(() => {
+    renderer.unmount();
+  });
+}
+
+/* ----------------------------------------------------------- approval log */
+
+console.log("approval log");
+
+{
+  const scriptedStorage = fakeStorage();
+  const originalLocalStorage = globalThis.localStorage;
+  globalThis.localStorage = scriptedStorage;
+  try {
+    setSettings(internals.DEFAULT_SETTINGS);
+    internals.clearLog();
+    internals.recordLogAsked({ id: "k0", sessionId: "s1", toolName: "pwsh" });
+    equal("the log switch off records nothing", internals.getLogEntries().length, 0);
+
+    setSettings({ approvalLog: true });
+    internals.recordLogAsked({ id: "approval:k1", sessionId: "s1", toolName: "pwsh", reason: "权限升级 → danger-full-access", sessionTitle: "会话甲" });
+    const askedEntry = internals.getLogEntries()[0];
+    equal("asked entries start unknown", [askedEntry.outcome, askedEntry.via, askedEntry.decidedAt], ["unknown", "unknown", undefined]);
+    equal("asked entries keep the approval key", askedEntry.id, "approval:k1");
+    equal("asked entries keep tool and title", [askedEntry.toolName, askedEntry.sessionTitle], ["pwsh", "会话甲"]);
+    equal("asked entries persist", JSON.parse(scriptedStorage.map.get(internals.LOG_KEY)).entries.length, 1);
+
+    internals.recordLogDecided("approval:k1", { outcome: "allowed-once", via: "panel", note: "只改 docs/", noteMode: "steer" });
+    const decidedEntry = internals.getLogEntries()[0];
+    equal("decided entries record outcome and via", [decidedEntry.outcome, decidedEntry.via], ["allowed-once", "panel"]);
+    check("decided entries get a latency", typeof decidedEntry.latencyMs === "number" && decidedEntry.latencyMs >= 0);
+    equal("decided entries keep the delivered note", [decidedEntry.note, decidedEntry.noteMode], ["只改 docs/", "steer"]);
+
+    internals.recordLogDecided("approval:k1", { outcome: "unknown", via: "unknown" });
+    equal("a decided entry is never overwritten", internals.getLogEntries()[0].outcome, "allowed-once");
+
+    internals.recordLogAsked({ id: "approval:k2", sessionId: "s1", toolName: "edit" });
+    internals.recordLogDecided("approval:k2", { outcome: "rejected", via: "panel", note: "先别发" });
+    equal("rejections are recorded", internals.getLogEntries().find((entry) => entry.id === "approval:k2").outcome, "rejected");
+
+    internals.recordLogSessionTitle("approval:k2", "会话乙");
+    equal("session titles can be filled in later", internals.getLogEntries().find((entry) => entry.id === "approval:k2").sessionTitle, "会话乙");
+
+    internals.recordLogAsked({ id: "approval:long", sessionId: "s1", toolName: "pwsh", reason: "x".repeat(700) });
+    equal("reasons are capped at 500 characters", internals.getLogEntries().find((entry) => entry.id === "approval:long").reason.length, 500);
+
+    internals.clearLog();
+    for (let index = 0; index < 105; index += 1) internals.recordLogAsked({ id: "cap-a-" + index, sessionId: "session-a", toolName: "pwsh" });
+    const capped = internals.getLogEntries();
+    equal("the per-session cap keeps 100 entries", capped.length, 100);
+    equal("the per-session cap drops the oldest", capped[0].id, "cap-a-5");
+
+    internals.clearLog();
+    for (const session of ["session-a", "session-b", "session-c"]) {
+      for (let index = 0; index < 80; index += 1) internals.recordLogAsked({ id: session + "-" + index, sessionId: session, toolName: "pwsh" });
+    }
+    equal("the total cap keeps 200 entries", internals.getLogEntries().length, 200);
+
+    const filtered = internals.filterLogEntries([{ outcome: "allowed-once" }, { outcome: "rejected" }, { outcome: "unknown" }], "rejected");
+    equal("filterLogEntries selects one outcome", filtered.length, 1);
+    equal("filterLogEntries keeps everything for all", internals.filterLogEntries([{ outcome: "allowed-once" }], "all").length, 1);
+
+    const exported = JSON.parse(internals.formatLogExport([{ id: "x" }], 123));
+    equal("the export carries the schema", exported.schema, internals.LOG_SCHEMA_VERSION);
+    equal("the export keeps the caller timestamp", exported.exportedAt, 123);
+    equal("the export includes entries", exported.entries.length, 1);
+
+    equal("formatLogTime renders a local timestamp", internals.formatLogTime(new Date(2026, 0, 2, 3, 4, 5).getTime()), "2026-01-02 03:04");
+
+    scriptedStorage.map.set(internals.LOG_KEY, "{broken");
+    equal("corrupted log storage degrades to empty", internals.readStoredLog().length, 0);
+    internals.clearLog();
+    equal("clearLog empties the store", internals.getLogEntries().length, 0);
+    equal("clearLog persists an empty log", JSON.parse(scriptedStorage.map.get(internals.LOG_KEY)).entries.length, 0);
+  } finally {
+    if (originalLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = originalLocalStorage;
+    setSettings(internals.DEFAULT_SETTINGS);
+    internals.clearLog();
+  }
+}
+
+{
+  const scriptedStorage = fakeStorage();
+  const originalLocalStorage = globalThis.localStorage;
+  globalThis.localStorage = scriptedStorage;
+  try {
+    setSettings({ ...internals.DEFAULT_SETTINGS, confirmAllow: false, approvalLog: true });
+    internals.clearLog();
+    const events = [];
+    const target = makeTarget("approval:log-1", "pwsh", events);
+    const remote = eventRemote({ ok: true }, events);
+    const renderer = mountDock({ target, remote });
+    equal("the overlay records a seen approval", internals.getLogEntries().length, 1);
+    equal("the overlay records the tool name", internals.getLogEntries()[0].toolName, "pwsh");
+    await clickAsync(findButton(renderer, "允许一次"));
+    const entry = internals.getLogEntries()[0];
+    equal("the overlay records the plugin outcome", [entry.outcome, entry.via], ["allowed-once", "panel"]);
+
+    internals.clearLog();
+    const eventsB = [];
+    const targetB = makeTarget("approval:log-2", "edit", eventsB);
+    const rendererB = mountDock({ target: targetB, remote: eventRemote({ ok: true }, eventsB) });
+    equal("a second approval is logged", internals.getLogEntries().length, 1);
+    rerenderDock(rendererB, { target: targetB, remote: eventRemote({ ok: true }, eventsB), statusMap: new Map() });
+    const lostEntry = internals.getLogEntries().find((item) => item.id === "approval:log-2");
+    equal("an approval handled elsewhere records unknown", [lostEntry.outcome, lostEntry.via], ["unknown", "unknown"]);
+    check("the unknown entry has a decided time", typeof lostEntry.decidedAt === "number");
+
+    internals.clearLog();
+    const eventsC = [];
+    const targetC = makeTarget("approval:log-3", "pwsh", eventsC);
+    const rendererC = mountDock({ target: targetC, remote: eventRemote({ ok: true }, eventsC) });
+    rerenderDock(rendererC, {
+      target: targetC,
+      remote: eventRemote({ ok: true }, eventsC),
+      currentSessionId: "session-2",
+      statusMap: new Map([["session-2", { pendingInteraction: makeTarget("approval:log-4", "write", []).pending }]]),
+    });
+    const switched = internals.getLogEntries().find((item) => item.id === "approval:log-3");
+    check("switching sessions leaves the entry pending", switched !== undefined && switched.decidedAt === undefined);
+  } finally {
+    if (originalLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = originalLocalStorage;
+    setSettings(internals.DEFAULT_SETTINGS);
+    internals.clearLog();
+  }
+}
+
+/* --------------------------------------------------------- update checker */
+
+console.log("update checker");
+
+equal("parseSemver splits the parts", internals.parseSemver("1.2.3"), { major: 1, minor: 2, patch: 3, pre: "" });
+check("parseSemver rejects junk", internals.parseSemver("latest") === undefined);
+equal("compareSemver equal", internals.compareSemver("0.3.0", "0.3.0"), 0);
+equal("compareSemver patch", internals.compareSemver("0.3.1", "0.3.0"), 1);
+equal("compareSemver minor", internals.compareSemver("0.4.0", "0.3.9"), 1);
+equal("compareSemver major", internals.compareSemver("1.0.0", "0.9.9"), 1);
+equal("compareSemver older", internals.compareSemver("0.2.0", "0.3.0"), -1);
+equal("prerelease is lower than release", internals.compareSemver("1.0.0-alpha", "1.0.0"), -1);
+equal("prerelease order is lexical", internals.compareSemver("1.0.0-alpha", "1.0.0-beta"), -1);
+equal("numeric prerelease identifiers compare numerically", internals.compareSemver("1.0.0-alpha.2", "1.0.0-alpha.10"), -1);
+equal("numeric prerelease is lower than alpha", internals.compareSemver("1.0.0-1", "1.0.0-alpha"), -1);
+check("compareSemver tolerates a leading v", internals.compareSemver("v0.3.0", "0.3.0") === 0);
+check("compareSemver returns undefined for junk", internals.compareSemver("x", "1.0.0") === undefined);
+check("semverGt is strict", internals.semverGt("0.3.0", "0.3.0") === false && internals.semverGt("0.3.1", "0.3.0") === true);
+
+{
+  const stub = (value) => async () => ({ ok: true, json: async () => value });
+  const available = await internals.checkForUpdate("0.3.0", { fetchImpl: stub({ version: "0.3.1" }) });
+  equal("a newer registry version is reported", available.status, "available");
+  equal("the available result carries the command", available.command, internals.UPDATE_COMMAND);
+  const latest = await internals.checkForUpdate("0.3.0", { fetchImpl: stub({ version: "0.3.0" }) });
+  equal("the same version is up to date", latest.status, "latest");
+  const olderRegistry = await internals.checkForUpdate("0.3.0", { fetchImpl: stub({ version: "0.2.0" }) });
+  equal("a stale registry version is not offered", olderRegistry.status, "latest");
+  const httpError = await internals.checkForUpdate("0.3.0", { fetchImpl: async () => ({ ok: false, status: 503 }) });
+  equal("http failures are reported", httpError.status, "failed");
+  includes("http failures keep the status", httpError.error, "503");
+  const noVersion = await internals.checkForUpdate("0.3.0", { fetchImpl: stub({}) });
+  equal("a response without a version fails", noVersion.status, "failed");
+  const thrown = await internals.checkForUpdate("0.3.0", {
+    fetchImpl: async () => {
+      throw new Error("offline");
+    },
+  });
+  equal("network errors are reported", thrown.status, "failed");
+  includes("network errors keep the message", thrown.error, "offline");
+}
+
+{
+  const originalFetch = globalThis.fetch;
+  try {
+    delete globalThis.fetch;
+    const unavailable = await internals.checkForUpdate("0.3.0", {});
+    equal("a missing fetch implementation fails", unavailable.status, "failed");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+{
+  const originalFetch = globalThis.fetch;
+  const originalLocalStorage = globalThis.localStorage;
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ version: "9.9.9" }) });
+  globalThis.localStorage = fakeStorage();
+  try {
+    setSettings({ ...internals.DEFAULT_SETTINGS, updateCheck: true });
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(React.createElement(internals.SettingsSection, { t: zhText }));
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const text = textOf(renderer);
+    includes("the update check reports the newer version", text, "有新版本 9.9.9");
+    includes("the update check shows the command", text, internals.UPDATE_COMMAND);
+  } finally {
+    if (originalLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = originalLocalStorage;
+    globalThis.fetch = originalFetch;
+    setSettings(internals.DEFAULT_SETTINGS);
+  }
+}
+
+{
+  const originalFetch = globalThis.fetch;
+  const originalLocalStorage = globalThis.localStorage;
+  globalThis.fetch = async () => {
+    throw new Error("offline");
+  };
+  globalThis.localStorage = fakeStorage();
+  try {
+    setSettings({ ...internals.DEFAULT_SETTINGS, updateCheck: true });
+    let renderer;
+    await act(async () => {
+      renderer = TestRenderer.create(React.createElement(internals.SettingsSection, { t: zhText }));
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    check("an automatic update failure stays silent", !textOf(renderer).includes("检查失败"));
+  } finally {
+    if (originalLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = originalLocalStorage;
+    globalThis.fetch = originalFetch;
+    setSettings(internals.DEFAULT_SETTINGS);
   }
 }
 
