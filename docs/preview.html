@@ -2,20 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>dsh-approval-reason-dock preview (0.2.0, en)</title>
+<title>dsh-approval-reason-dock preview (0.3.0, en)</title>
 <style>
   :root {
     --bg: #141414; --bg-2: #1e1e1e; --border: #3a3a3a;
     --text: #e8e8e8; --text-2: #b9b9b9; --text-3: #9a9a9a;
-    --warn: #e0a45e; --primary-fill: #f0f0f0; --primary-ink: #141414;
+    --warn: #e0a45e; --ok: #4ec9a0; --primary-fill: #f0f0f0; --primary-ink: #141414;
     --input-bg: #10141a; --radius-md: 9px; --radius-xl: 14px;
     --panel-line: #2e2e2e; --shadow: 0 8px 28px rgba(0,0,0,.35);
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; width: 1000px; height: 600px; overflow: hidden; }
+  html, body { margin: 0; width: 1200px; height: 800px; overflow: hidden; }
   body { background: var(--bg); color: var(--text); font: 13px/1.5 "Segoe UI", system-ui, sans-serif; }
-  .window { position: relative; width: 1000px; height: 600px; }
-  .sidebar { position: absolute; inset: 0 auto 0 0; width: 240px; background: #101216; border-right: 1px solid #262a30; padding: 14px 10px; color: var(--text-3); }
+  .window { position: relative; width: 1200px; height: 800px; }
+  .sidebar { position: absolute; inset: 0 auto 0 0; width: 200px; background: #101216; border-right: 1px solid #262a30; padding: 14px 10px; color: var(--text-3); }
   .sidebar .section { padding: 4px 8px 10px; color: #6f7680; font-size: 12px; }
   .sidebar .item { padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sidebar .item.active { background: #23272e; color: var(--text); }
@@ -25,28 +25,53 @@
   .state-label + .panel { margin-bottom: 12px; }
   .panel { width: 344px; padding: 10px 13px 12px; border-radius: var(--radius-xl); border: 1px solid var(--border); background: var(--bg-2); color: var(--text); box-shadow: var(--shadow); }
 
-  /* left: the Settings section (two switches, default on, on/off risk copy) */
-  .left-col { position: absolute; left: 266px; top: 20px; width: 344px; }
-  .settings { padding: 14px 16px; }
-  .settings-title { font-size: 14px; font-weight: 600; line-height: 1.3; }
-  .settings-intro { margin-top: 4px; color: var(--text-2); font-size: 11.5px; line-height: 1.45; }
-  .divider { height: 1px; background: var(--panel-line); margin: 10px 0; }
-  .switch-head { display: flex; align-items: center; gap: 8px; }
-  .switch-label { font-weight: 600; }
-  .checkbox { margin-left: auto; width: 18px; height: 18px; border-radius: 5px; background: var(--warn); position: relative; flex: none; }
-  .checkbox::after { content: ''; position: absolute; left: 5px; top: 4px; width: 8px; height: 4px; border-left: 2px solid var(--primary-ink); border-bottom: 2px solid var(--primary-ink); transform: rotate(-45deg); }
-  .switch-desc { margin-top: 2px; color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
-  .risk { margin-top: 6px; padding: 7px 9px; border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-2); font-size: 11px; line-height: 1.38; display: flex; flex-direction: column; gap: 4px; }
-  .risk + .switch-head { margin-top: 12px; }
-  .settings-default { color: #8a8a8a; font-size: 11px; line-height: 1.4; }
+  /* left: the Settings section (six controls, log viewer, update status) */
+  .left-col { position: absolute; left: 220px; top: 14px; width: 560px; }
+  .settings { width: 100%; padding: 12px 14px 11px; }
+  .settings-title { font-size: 15px; font-weight: 600; line-height: 1.3; }
+  .settings-intro { margin-top: 3px; color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
+  .divider { height: 1px; background: var(--panel-line); margin: 8px 0; }
+  .switch-head { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+  .switch-label { font-weight: 600; font-size: 12.5px; line-height: 1.3; }
+  .checkbox { margin-left: auto; width: 16px; height: 16px; border-radius: 4px; background: var(--warn); position: relative; flex: none; }
+  .checkbox::after { content: ''; position: absolute; left: 4px; top: 3px; width: 8px; height: 4px; border-left: 2px solid var(--primary-ink); border-bottom: 2px solid var(--primary-ink); transform: rotate(-45deg); }
+  .switch-desc { margin-top: 1px; color: var(--text-2); font-size: 11px; line-height: 1.35; }
+  .risk { margin-top: 5px; padding: 5px 8px; border-radius: 7px; background: var(--input-bg); color: var(--text-2); font-size: 10px; line-height: 1.3; display: flex; flex-direction: column; gap: 1px; }
+  .risk-off { color: var(--warn); }
+  .inline-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+  .inline-label { font-size: 12px; font-weight: 600; }
+  .num { width: 46px; padding: 2px 5px; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font: inherit; font-size: 12px; text-align: center; }
+  .num-unit { color: var(--text-3); font-size: 11px; }
+  .inline-desc { margin-top: 1px; color: var(--text-3); font-size: 10px; line-height: 1.3; }
+  .status { color: var(--text-2); font-size: 10.5px; }
+  .settings-default { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--panel-line); color: #8a8a8a; font-size: 10.5px; line-height: 1.4; }
 
-  /* right: collapsed pill + input state + allow confirmation view */
-  .right-col { position: absolute; right: 24px; top: 20px; width: 344px; display: flex; flex-direction: column; }
+  /* approval-log viewer */
+  .log-box { margin-top: 4px; padding: 6px 8px 7px; border-radius: var(--radius-md); background: #171a1f; border: 1px solid var(--panel-line); }
+  .log-head { display: flex; align-items: center; gap: 8px; }
+  .log-title { font-size: 11.5px; font-weight: 600; }
+  .log-count { margin-left: auto; color: var(--text-3); font-size: 10.5px; }
+  .filters { display: flex; gap: 5px; margin-top: 4px; }
+  .chip { padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-2); font: inherit; font-size: 10px; line-height: 1.5; cursor: pointer; }
+  .chip.active { background: var(--warn); border-color: transparent; color: var(--primary-ink); font-weight: 600; }
+  .log-entry { margin-top: 4px; padding: 4px 6px; border-radius: 6px; background: #101318; border: 1px solid #2a2d33; }
+  .log-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 10.5px; color: var(--text); line-height: 1.45; }
+  .log-meta { color: var(--text-3); font-size: 10px; }
+  .log-sub { margin-top: 1px; color: var(--text-2); font-size: 10px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-actions { display: flex; gap: 6px; margin-top: 5px; }
+  .mini-btn { padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-2); font: inherit; font-size: 10px; line-height: 1.5; cursor: pointer; }
+  .log-hint { margin-top: 4px; color: var(--text-3); font-size: 9.5px; line-height: 1.3; }
+
+  /* right: collapsed pill, delivered notices, input and confirmation states */
+  .right-col { position: absolute; right: 24px; top: 14px; width: 344px; display: flex; flex-direction: column; }
   .pill-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   .pill-row .caption { color: #6f7680; font-size: 12px; }
   .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); opacity: .82; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .pill .dot { color: var(--warn); }
   .pill .tool { color: var(--text-3); font-size: 12px; }
+  .notice { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-2); font-size: 12px; line-height: 1.45; box-shadow: 0 2px 8px rgba(0,0,0,.25); margin-bottom: 8px; }
+  .notice.ok { color: var(--ok); }
+  .notice.warn { color: var(--warn); }
   .head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; line-height: 1.4; }
   .head .dot { color: var(--warn); }
   .head .title { font-weight: 600; flex: none; }
@@ -65,7 +90,7 @@
   .warn-hint { margin-bottom: 6px; color: var(--warn); font-size: 11.5px; line-height: 1.4; }
   .note-preview { margin-bottom: 6px; padding: 6px 8px; border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
 
-  .caption-bottom { position: absolute; left: 266px; bottom: 6px; color: #5f666f; font-size: 11px; }
+  .caption-bottom { position: absolute; left: 220px; bottom: 6px; color: #5f666f; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -78,12 +103,12 @@
       <div class="item">Code review</div>
     </div>
 
-    <!-- Settings section: two switches, both default on -->
+    <!-- Settings section: six controls; the log and the update check are enabled in this sample -->
     <div class="left-col">
-      <div class="state-label">Settings · two switches (default on)</div>
+      <div class="state-label">Settings · six controls (approval log &amp; update check enabled for this sample)</div>
       <div class="panel settings">
         <div class="settings-title">Approval Note Dock</div>
-        <div class="settings-intro">Controls "allow with note" and "allow confirmation". Reject with a note always works and is not affected by these switches.</div>
+        <div class="settings-intro">Controls allow-with-note, allow confirmation, delivered notices, the approval log and update checks. Reject with a note always works and is not affected by these switches.</div>
         <div class="divider"></div>
 
         <div class="switch-head">
@@ -91,34 +116,92 @@
           <span class="checkbox" aria-hidden="true"></span>
         </div>
         <div class="switch-desc">Attach a note when allowing; it enters the running turn as a steering user message.</div>
-        <div class="risk">
-          <div>On: the note becomes a normal user message in the session log and model context; if it cannot be delivered, the approval is not answered (retryable).</div>
-          <div>Off: allows carry no conditions — the model only sees a native allow; use "Reject with note" instead.</div>
-        </div>
 
         <div class="switch-head">
           <span class="switch-label">Allow confirmation</span>
           <span class="checkbox" aria-hidden="true"></span>
         </div>
         <div class="switch-desc">Clicking allow opens an in-panel confirmation before the tool call runs.</div>
+
+        <div class="switch-head">
+          <span class="switch-label">Delivered-notice feedback</span>
+          <span class="checkbox" aria-hidden="true"></span>
+        </div>
+        <div class="switch-desc">After an allow-with-note is delivered, briefly show a delivered notice; this affects the notice only, not delivery.</div>
+        <div class="inline-row">
+          <span class="inline-label">Notice duration (seconds)</span>
+          <input class="num" value="3" aria-label="Notice duration (seconds)">
+          <span class="num-unit">s</span>
+        </div>
+        <div class="inline-desc">Integer 1–10 seconds; out-of-range values are clamped; the timer restarts with the last delivered notice.</div>
+
+        <div class="switch-head">
+          <span class="switch-label">Approval log</span>
+          <span class="checkbox" aria-hidden="true"></span>
+        </div>
+        <div class="switch-desc">Records approvals visible to this plugin (time/session/tool/note/outcome) in this browser; view and export as you like.</div>
         <div class="risk">
-          <div>On: one extra step per allow; frequent approvals feel slower.</div>
-          <div>Off: clicking allow runs the tool call immediately; no second line of defense against misclicks.</div>
+          <div>On: approval details (including note text that may contain paths or command details) are stored in this browser's localStorage and never uploaded; exported files are yours to keep.</div>
+          <div class="risk-off">Off: records nothing (default).</div>
         </div>
 
-        <div class="divider"></div>
-        <div class="settings-default">Both default to on; stored in this browser.</div>
+        <div class="log-box">
+          <div class="log-head">
+            <span class="log-title">Approval log</span>
+            <span class="log-count">2 records</span>
+          </div>
+          <div class="filters">
+            <button class="chip active">All</button>
+            <button class="chip">Allowed</button>
+            <button class="chip">Rejected</button>
+            <button class="chip">Unknown</button>
+          </div>
+          <div class="log-entry">
+            <div class="log-line"><span class="log-meta">2026-11-17 16:12</span><span>pwsh</span><span class="log-meta">Allowed</span><span class="log-meta">Plugin panel</span></div>
+            <div class="log-sub">Session: Approval wording &amp; rejection reasons</div>
+            <div class="log-sub">Note: Only change files under docs/; run --dry-run first.</div>
+          </div>
+          <div class="log-entry">
+            <div class="log-line"><span class="log-meta">2026-11-17 16:05</span><span>pwsh</span><span class="log-meta">Unknown outcome</span><span class="log-meta">Built-in card / external</span></div>
+            <div class="log-sub">Session: Simple test request</div>
+          </div>
+          <div class="log-actions">
+            <button class="mini-btn">Export JSON</button>
+            <button class="mini-btn">Clear local log</button>
+          </div>
+          <div class="log-hint">Keeps up to 200 records (100 per session), dropping the oldest; exports contain local records only.</div>
+        </div>
+
+        <div class="switch-head">
+          <span class="switch-label">Check for updates</span>
+          <span class="checkbox" aria-hidden="true"></span>
+        </div>
+        <div class="switch-desc">Checks npm for a newer version and shows the update command; never installs automatically.</div>
+        <div class="risk">
+          <div>On: opening this settings section queries the npm registry for this package's latest version (package name only).</div>
+          <div class="risk-off">Off: no network check at all (default).</div>
+        </div>
+        <div class="inline-row">
+          <button class="mini-btn">Check now</button>
+          <span class="status">Up to date (0.3.0).</span>
+        </div>
+
+        <div class="settings-default">The two 0.2.0 switches and delivered notices default to on; the approval log and update checks default to off. Stored in this browser.</div>
       </div>
     </div>
 
-    <!-- Collapsed pill + the two overlay states -->
+    <!-- Collapsed pill, delivered notices, input state and allow confirmation -->
     <div class="right-col">
       <div class="pill-row">
         <span class="caption">Collapsed:</span>
         <span class="pill"><span class="dot"></span>Pending review<span class="tool">pwsh</span></span>
       </div>
 
-      <div class="state-label">1 · input state — draft typed</div>
+      <div class="state-label">1 · delivered notices (allow side only; max 2, in memory)</div>
+      <div class="notice ok">Delivered; it is inserted after the current step and is visible to the model next step.</div>
+      <div class="notice warn">⚠️ Queued (steer downgraded); visible to the model next round.</div>
+
+      <div class="state-label">2 · input state — draft typed</div>
       <div class="panel">
         <div class="head">
           <span class="dot"></span>
@@ -127,7 +210,7 @@
           <button class="collapse" title="Collapse">–</button>
         </div>
         <div class="session">Session: Approval wording &amp; rejection reasons</div>
-        <div class="hint">Add a note (optional; it enters the running turn immediately)</div>
+        <div class="hint">Add a note (optional); it is delivered to the running turn before the approval is answered.</div>
         <textarea>Only change files under docs/; run --dry-run first.</textarea>
         <div class="actions">
           <button class="primary">Allow with note</button>
@@ -135,7 +218,7 @@
         </div>
       </div>
 
-      <div class="state-label">2 · allow confirmation</div>
+      <div class="state-label">3 · allow confirmation</div>
       <div class="panel">
         <div class="head">
           <span class="dot"></span>
@@ -155,7 +238,7 @@
       </div>
     </div>
 
-    <div class="caption-bottom">0.2.0 · panel follows the current session (top-right); allow asks for confirmation first; both allow behaviors follow Settings</div>
+    <div class="caption-bottom">0.3.0 · delivered notices (max 2, memory only, 3 s default) · six settings · local-only approval log · update check shows a command, never installs</div>
   </div>
 </body>
 </html>

@@ -4,6 +4,71 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-11-17
+
+### Added
+
+- **Delivered notices (allow side).** After an allow-with-note is actually
+  delivered and the approval is answered, the overlay shows a short notice:
+  `Delivered; it is inserted after the current step and is visible to the model next step.`
+  When steering was unavailable and the note was queued, the notice is
+  warn-tinted with a `⚠️` prefix:
+  `Queued (steer downgraded); visible to the model next round.` Up to two
+  notices stack (the newest at the bottom, older ones dropped); they live in
+  memory only (lost on reload), a new approval card or a session switch does
+  not clear them, and every new delivery restarts the auto-close timer.
+  Controlled by *Delivered-notice feedback* (default on) and *Notice duration
+  (seconds)* (default 3 s, whole seconds 1–10, out-of-range values clamped).
+- **Approval log (basic, local only).** *Approval log* (default off) records
+  the approvals this plugin can see — time, session, tool, the offered
+  reason/note text and the outcome — into this browser's `localStorage`
+  (`dsh-approval-reason-dock:log:v1`, schema v1; at most 200 records total and
+  100 per session, oldest dropped; text fields capped at 500 characters). The
+  settings section lists the newest first, filters by Allowed / Rejected /
+  Unknown, exports the log as JSON and clears it locally. Decisions taken in
+  the built-in card are recorded as *Unknown outcome / Built-in card or
+  external* because the plugin never sees that `answer()`; no tool parameter
+  contents are stored and nothing is uploaded.
+- **Update check.** *Check for updates* (default off): opening the settings
+  section queries the npm registry for this package's latest version (package
+  name only) and compares it with the bundled version; if a newer version
+  exists it shows `dsh plugin --profile web add dsh-approval-reason-dock@latest`.
+  Automatic checks reuse a result for one hour and fail silently; **Check
+  now** always rechecks and shows a manual failure. It never installs, writes
+  files or restarts DSH.
+- The settings section now has six controls: the two 0.2.0 switches, delivered
+  notices + duration, the approval log and the update check. Existing 0.2.0
+  storage keeps the user's choices; missing fields fall back to defaults.
+- The test harness grew from 309 to **451 checks**, covering the notice queue,
+  the log store/filters/export, the update checker and semver comparison.
+
+### Changed
+
+- Copy fix: the steer success notice now reads
+  `Delivered; it is inserted after the current step and is visible to the model next step.`
+  and the input hint no longer claims the note enters the current turn
+  immediately (`Add a note (optional); it is delivered to the running turn before the approval is answered.`).
+  The queue notice reads
+  `⚠️ Queued (steer downgraded); visible to the model next round.`
+- A successful allow-with-note no longer always closes the overlay
+  immediately: with delivered notices on (default), the card is cleared and its
+  notice stays until the duration ends; with notices off, the overlay closes
+  immediately (0.2.0 behavior). The reject path is unchanged.
+- Internal: new `__internals` exports for notices, the log and the update
+  checker; the settings store now persists six fields under the same
+  localStorage key. `engines.dsh`, `exports.inject`, `dsh.client.inject` and
+  the empty host half (`index.js`) are unchanged — still client-only.
+
+### Notes
+
+- Delivered notices are **allow-side only**. The reject path (delivery,
+  answer, failure blocking) is unchanged.
+- The approval log is **off by default** and **local only**: it is written to
+  this browser's localStorage and never uploaded; exports are the user's to
+  keep and may contain paths or command details from note text.
+- The update check is **off by default** and **never installs anything**; it
+  only reads registry metadata and prints a command.
+
 ## [0.2.0] - 2026-11-12
 
 ### Added

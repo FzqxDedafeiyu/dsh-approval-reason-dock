@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Approval Note Dock",
-    "description": "Adds an optional note to both approval decisions — allow or reject — and asks for confirmation before an allow runs; the note enters the running turn before the approval is answered."
+    "description": "Adds an optional note to both approval decisions — allow or reject — and asks for confirmation before an allow runs; the note enters the running turn before the approval is answered. 0.3.0 adds optional delivered notices, a browser-local approval log (off by default) and an update check that never installs."
   }
 }

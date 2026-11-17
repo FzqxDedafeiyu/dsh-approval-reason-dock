@@ -2,20 +2,20 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>dsh-approval-reason-dock preview (0.2.0, zh)</title>
+<title>dsh-approval-reason-dock preview (0.3.0, zh)</title>
 <style>
   :root {
     --bg: #141414; --bg-2: #1e1e1e; --border: #3a3a3a;
     --text: #e8e8e8; --text-2: #b9b9b9; --text-3: #9a9a9a;
-    --warn: #e0a45e; --primary-fill: #f0f0f0; --primary-ink: #141414;
+    --warn: #e0a45e; --ok: #4ec9a0; --primary-fill: #f0f0f0; --primary-ink: #141414;
     --input-bg: #10141a; --radius-md: 9px; --radius-xl: 14px;
     --panel-line: #2e2e2e; --shadow: 0 8px 28px rgba(0,0,0,.35);
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; width: 1000px; height: 600px; overflow: hidden; }
+  html, body { margin: 0; width: 1200px; height: 800px; overflow: hidden; }
   body { background: var(--bg); color: var(--text); font: 13px/1.5 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; }
-  .window { position: relative; width: 1000px; height: 600px; }
-  .sidebar { position: absolute; inset: 0 auto 0 0; width: 240px; background: #101216; border-right: 1px solid #262a30; padding: 14px 10px; color: var(--text-3); }
+  .window { position: relative; width: 1200px; height: 800px; }
+  .sidebar { position: absolute; inset: 0 auto 0 0; width: 200px; background: #101216; border-right: 1px solid #262a30; padding: 14px 10px; color: var(--text-3); }
   .sidebar .section { padding: 4px 8px 10px; color: #6f7680; font-size: 12px; }
   .sidebar .item { padding: 8px 10px; border-radius: 8px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sidebar .item.active { background: #23272e; color: var(--text); }
@@ -25,28 +25,53 @@
   .state-label + .panel { margin-bottom: 12px; }
   .panel { width: 344px; padding: 10px 13px 12px; border-radius: var(--radius-xl); border: 1px solid var(--border); background: var(--bg-2); color: var(--text); box-shadow: var(--shadow); }
 
-  /* 左侧：设置面板（两个开关，默认开启，含开启/关闭风险提示） */
-  .left-col { position: absolute; left: 266px; top: 20px; width: 344px; }
-  .settings { padding: 14px 16px; }
-  .settings-title { font-size: 14px; font-weight: 600; line-height: 1.3; }
-  .settings-intro { margin-top: 4px; color: var(--text-2); font-size: 11.5px; line-height: 1.45; }
-  .divider { height: 1px; background: var(--panel-line); margin: 10px 0; }
-  .switch-head { display: flex; align-items: center; gap: 8px; }
-  .switch-label { font-weight: 600; }
-  .checkbox { margin-left: auto; width: 18px; height: 18px; border-radius: 5px; background: var(--warn); position: relative; flex: none; }
-  .checkbox::after { content: ''; position: absolute; left: 5px; top: 4px; width: 8px; height: 4px; border-left: 2px solid var(--primary-ink); border-bottom: 2px solid var(--primary-ink); transform: rotate(-45deg); }
-  .switch-desc { margin-top: 2px; color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
-  .risk { margin-top: 6px; padding: 7px 9px; border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-2); font-size: 11px; line-height: 1.38; display: flex; flex-direction: column; gap: 4px; }
-  .risk + .switch-head { margin-top: 12px; }
-  .settings-default { color: #8a8a8a; font-size: 11px; line-height: 1.4; }
+  /* 左侧：设置面板（六项控件、日志查看区、更新状态行） */
+  .left-col { position: absolute; left: 220px; top: 14px; width: 560px; }
+  .settings { width: 100%; padding: 12px 14px 11px; }
+  .settings-title { font-size: 15px; font-weight: 600; line-height: 1.3; }
+  .settings-intro { margin-top: 3px; color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
+  .divider { height: 1px; background: var(--panel-line); margin: 8px 0; }
+  .switch-head { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+  .switch-label { font-weight: 600; font-size: 12.5px; line-height: 1.3; }
+  .checkbox { margin-left: auto; width: 16px; height: 16px; border-radius: 4px; background: var(--warn); position: relative; flex: none; }
+  .checkbox::after { content: ''; position: absolute; left: 4px; top: 3px; width: 8px; height: 4px; border-left: 2px solid var(--primary-ink); border-bottom: 2px solid var(--primary-ink); transform: rotate(-45deg); }
+  .switch-desc { margin-top: 1px; color: var(--text-2); font-size: 11px; line-height: 1.35; }
+  .risk { margin-top: 5px; padding: 5px 8px; border-radius: 7px; background: var(--input-bg); color: var(--text-2); font-size: 10px; line-height: 1.3; display: flex; flex-direction: column; gap: 1px; }
+  .risk-off { color: var(--warn); }
+  .inline-row { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+  .inline-label { font-size: 12px; font-weight: 600; }
+  .num { width: 46px; padding: 2px 5px; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font: inherit; font-size: 12px; text-align: center; }
+  .num-unit { color: var(--text-3); font-size: 11px; }
+  .inline-desc { margin-top: 1px; color: var(--text-3); font-size: 10px; line-height: 1.3; }
+  .status { color: var(--text-2); font-size: 10.5px; }
+  .settings-default { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--panel-line); color: #8a8a8a; font-size: 10.5px; line-height: 1.4; }
 
-  /* 右侧：折叠 pill + 输入态 + 允许二次确认 */
-  .right-col { position: absolute; right: 24px; top: 20px; width: 344px; display: flex; flex-direction: column; }
+  /* 审批日志查看区 */
+  .log-box { margin-top: 4px; padding: 6px 8px 7px; border-radius: var(--radius-md); background: #171a1f; border: 1px solid var(--panel-line); }
+  .log-head { display: flex; align-items: center; gap: 8px; }
+  .log-title { font-size: 11.5px; font-weight: 600; }
+  .log-count { margin-left: auto; color: var(--text-3); font-size: 10.5px; }
+  .filters { display: flex; gap: 5px; margin-top: 4px; }
+  .chip { padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-2); font: inherit; font-size: 10px; line-height: 1.5; cursor: pointer; }
+  .chip.active { background: var(--warn); border-color: transparent; color: var(--primary-ink); font-weight: 600; }
+  .log-entry { margin-top: 4px; padding: 4px 6px; border-radius: 6px; background: #101318; border: 1px solid #2a2d33; }
+  .log-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 10.5px; color: var(--text); line-height: 1.45; }
+  .log-meta { color: var(--text-3); font-size: 10px; }
+  .log-sub { margin-top: 1px; color: var(--text-2); font-size: 10px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-actions { display: flex; gap: 6px; margin-top: 5px; }
+  .mini-btn { padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-2); font: inherit; font-size: 10px; line-height: 1.5; cursor: pointer; }
+  .log-hint { margin-top: 4px; color: var(--text-3); font-size: 9.5px; line-height: 1.3; }
+
+  /* 右侧：折叠 pill、送达提醒、输入态与允许二次确认 */
+  .right-col { position: absolute; right: 24px; top: 14px; width: 344px; display: flex; flex-direction: column; }
   .pill-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
   .pill-row .caption { color: #6f7680; font-size: 12px; }
   .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-2); color: var(--text-2); opacity: .82; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .pill .dot { color: var(--warn); }
   .pill .tool { color: var(--text-3); font-size: 12px; }
+  .notice { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-2); font-size: 12px; line-height: 1.45; box-shadow: 0 2px 8px rgba(0,0,0,.25); margin-bottom: 8px; }
+  .notice.ok { color: var(--ok); }
+  .notice.warn { color: var(--warn); }
   .head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; line-height: 1.4; }
   .head .dot { color: var(--warn); }
   .head .title { font-weight: 600; flex: none; }
@@ -65,7 +90,7 @@
   .warn-hint { margin-bottom: 6px; color: var(--warn); font-size: 11.5px; line-height: 1.4; }
   .note-preview { margin-bottom: 6px; padding: 6px 8px; border-radius: var(--radius-md); background: var(--input-bg); color: var(--text-2); font-size: 11.5px; line-height: 1.4; }
 
-  .caption-bottom { position: absolute; left: 266px; bottom: 6px; color: #5f666f; font-size: 11px; }
+  .caption-bottom { position: absolute; left: 220px; bottom: 6px; color: #5f666f; font-size: 11px; }
 </style>
 </head>
 <body>
@@ -78,12 +103,12 @@
       <div class="item">代码审查</div>
     </div>
 
-    <!-- 设置面板：两个开关，默认都开启 -->
+    <!-- 设置面板：六项控件；本样张中审批日志与更新检查为开启，便于展示查看区与状态行 -->
     <div class="left-col">
-      <div class="state-label">设置 · 两个开关（默认开启）</div>
+      <div class="state-label">设置 · 六项（本样张中审批日志与更新检查为开启）</div>
       <div class="panel settings">
         <div class="settings-title">审批说明浮层</div>
-        <div class="settings-intro">控制「允许时带话」与「允许二次确认」。拒绝带理由始终可用，不受这两个开关影响。</div>
+        <div class="settings-intro">控制允许带话、允许二次确认、送达提醒、审批日志与更新检查。拒绝带理由始终可用，不受这些开关影响。</div>
         <div class="divider"></div>
 
         <div class="switch-head">
@@ -91,34 +116,92 @@
           <span class="checkbox" aria-hidden="true"></span>
         </div>
         <div class="switch-desc">允许审批时可以附一句说明，作为 steering 用户消息送进当前对话。</div>
-        <div class="risk">
-          <div>开启时：说明会写入会话日志并进入模型上下文；说明送不到时本次不回答审批（可重试）。</div>
-          <div>关闭时：允许不能附带条件，模型只看到原生放行；需要条件时请改用「拒绝并说明」。</div>
-        </div>
 
         <div class="switch-head">
           <span class="switch-label">允许二次确认</span>
           <span class="checkbox" aria-hidden="true"></span>
         </div>
         <div class="switch-desc">点允许后先在面板内二次确认，再执行工具调用。</div>
+
+        <div class="switch-head">
+          <span class="switch-label">允许说明送达提醒</span>
+          <span class="checkbox" aria-hidden="true"></span>
+        </div>
+        <div class="switch-desc">允许并说明送达后，在浮层短暂显示「已送达」提示；只影响提示，不影响投递。</div>
+        <div class="inline-row">
+          <span class="inline-label">提示显示时长（秒）</span>
+          <input class="num" value="3" aria-label="提示显示时长（秒）">
+          <span class="num-unit">秒</span>
+        </div>
+        <div class="inline-desc">1–10 秒的整数；越界自动夹取；以最后一条送达为准重新计时。</div>
+
+        <div class="switch-head">
+          <span class="switch-label">审批日志</span>
+          <span class="checkbox" aria-hidden="true"></span>
+        </div>
+        <div class="switch-desc">记录本插件可见的审批（时间/会话/工具/说明/结果），保存在本机浏览器，可查看与导出。</div>
         <div class="risk">
-          <div>开启时：每次允许多一步操作，高频审批会略慢。</div>
-          <div>关闭时：点允许会立即执行工具调用，误触/手滑没有第二道保护。</div>
+          <div>开启时：审批信息（含说明文本，可能含路径/命令细节）写入本机 localStorage，不上传；导出文件由你保管。</div>
+          <div class="risk-off">关闭时：不记录任何审批日志（默认）。</div>
         </div>
 
-        <div class="divider"></div>
-        <div class="settings-default">两项默认开启；设置保存在本机浏览器。</div>
+        <div class="log-box">
+          <div class="log-head">
+            <span class="log-title">审批日志</span>
+            <span class="log-count">共 2 条记录</span>
+          </div>
+          <div class="filters">
+            <button class="chip active">全部</button>
+            <button class="chip">已允许</button>
+            <button class="chip">已拒绝</button>
+            <button class="chip">未知</button>
+          </div>
+          <div class="log-entry">
+            <div class="log-line"><span class="log-meta">2026-11-17 16:12</span><span>pwsh</span><span class="log-meta">已允许</span><span class="log-meta">插件面板</span></div>
+            <div class="log-sub">会话：改造审批中文与拒绝理由</div>
+            <div class="log-sub">说明：只改 docs/ 下的文件；先 --dry-run 试一遍。</div>
+          </div>
+          <div class="log-entry">
+            <div class="log-line"><span class="log-meta">2026-11-17 16:05</span><span>pwsh</span><span class="log-meta">结果未知</span><span class="log-meta">内置卡/外部</span></div>
+            <div class="log-sub">会话：简单测试请求</div>
+          </div>
+          <div class="log-actions">
+            <button class="mini-btn">导出 JSON</button>
+            <button class="mini-btn">清空本机日志</button>
+          </div>
+          <div class="log-hint">最多保留 200 条（每会话 100 条），超出丢弃最旧；导出只包含本机记录。</div>
+        </div>
+
+        <div class="switch-head">
+          <span class="switch-label">检查新版本</span>
+          <span class="checkbox" aria-hidden="true"></span>
+        </div>
+        <div class="switch-desc">手动检查 npm 上的新版本并提示更新命令；不会自动安装。</div>
+        <div class="risk">
+          <div>开启时：打开设置页会向 npm registry 查询本包最新版本号（只发送包名）。</div>
+          <div class="risk-off">关闭时：完全不联网检查（默认）。</div>
+        </div>
+        <div class="inline-row">
+          <button class="mini-btn">立即检查</button>
+          <span class="status">已是最新版本（0.3.0）。</span>
+        </div>
+
+        <div class="settings-default">0.2.0 两项与送达提醒默认开启；审批日志与更新检查默认关闭。设置保存在本机浏览器。</div>
       </div>
     </div>
 
-    <!-- 折叠 pill 与两个浮层状态 -->
+    <!-- 折叠 pill、送达提醒、输入态与允许二次确认 -->
     <div class="right-col">
       <div class="pill-row">
         <span class="caption">折叠后：</span>
         <span class="pill"><span class="dot"></span>待审核<span class="tool">pwsh</span></span>
       </div>
 
-      <div class="state-label">① 输入态 — 已填说明</div>
+      <div class="state-label">① 送达提醒（只影响允许侧；最多 2 条，只放内存）</div>
+      <div class="notice ok">已送达；当前步骤结束后插入对话，下一步模型可见。</div>
+      <div class="notice warn">⚠️ 已排队（steer 降级）：下一轮模型可见。</div>
+
+      <div class="state-label">② 输入态 — 已填说明</div>
       <div class="panel">
         <div class="head">
           <span class="dot"></span>
@@ -127,7 +210,7 @@
           <button class="collapse" title="折叠">–</button>
         </div>
         <div class="session">会话：改造审批中文与拒绝理由</div>
-        <div class="hint">留一句说明（可选，会立即进入当前对话）</div>
+        <div class="hint">留一句说明（可选）；点允许后先送达当前对话，再提交审批。</div>
         <textarea>只改 docs/ 下的文件；先 --dry-run 试一遍。</textarea>
         <div class="actions">
           <button class="primary">允许并说明</button>
@@ -135,7 +218,7 @@
         </div>
       </div>
 
-      <div class="state-label">② 允许二次确认</div>
+      <div class="state-label">③ 允许二次确认</div>
       <div class="panel">
         <div class="head">
           <span class="dot"></span>
@@ -155,7 +238,7 @@
       </div>
     </div>
 
-    <div class="caption-bottom">0.2.0 · 浮层跟随当前会话（右上角）；允许前先二次确认；两项允许行为受设置开关控制</div>
+    <div class="caption-bottom">0.3.0 · 送达提醒（最多 2 条、只放内存、默认 3 秒）· 六项设置 · 仅本机审批日志 · 更新检查只提示命令、不安装</div>
   </div>
 </body>
 </html>
