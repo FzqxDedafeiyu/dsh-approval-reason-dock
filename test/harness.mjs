@@ -1425,7 +1425,7 @@ console.log("approval log");
     const rendererB = mountDock({ target: targetB, remote: eventRemote({ ok: true }, eventsB) });
     equal("a second approval is logged", internals.getLogEntries().length, 1);
     rerenderDock(rendererB, { target: targetB, remote: eventRemote({ ok: true }, eventsB), statusMap: new Map() });
-    const lostEntry = internals.getLogEntries().find((item) => item.id === "approval:log-2");
+    const lostEntry = internals.getLogEntries().find((item) => item.id.startsWith("approval:log-2"));
     equal("an approval handled elsewhere records unknown", [lostEntry.outcome, lostEntry.via], ["unknown", "unknown"]);
     check("the unknown entry has a decided time", typeof lostEntry.decidedAt === "number");
 
@@ -1439,8 +1439,46 @@ console.log("approval log");
       currentSessionId: "session-2",
       statusMap: new Map([["session-2", { pendingInteraction: makeTarget("approval:log-4", "write", []).pending }]]),
     });
-    const switched = internals.getLogEntries().find((item) => item.id === "approval:log-3");
+    const switched = internals.getLogEntries().find((item) => item.id.startsWith("approval:log-3"));
     check("switching sessions leaves the entry pending", switched !== undefined && switched.decidedAt === undefined);
+  } finally {
+    if (originalLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = originalLocalStorage;
+    setSettings(internals.DEFAULT_SETTINGS);
+    internals.clearLog();
+  }
+}
+
+{
+  // DSH restarts reset approval keys (`approval:1` again). A remounted panel
+  // (new run) must append a fresh log entry instead of merging the previous
+  // run's entry — approval keys are only unique within one client run.
+  const scriptedStorage = fakeStorage();
+  const originalLocalStorage = globalThis.localStorage;
+  globalThis.localStorage = scriptedStorage;
+  try {
+    setSettings({ ...internals.DEFAULT_SETTINGS, confirmAllow: false, approvalLog: true });
+    internals.clearLog();
+    const mountOnce = (key) => {
+      const events = [];
+      const target = makeTarget(key, "pwsh", events);
+      const remote = eventRemote({ ok: true }, events);
+      return { renderer: mountDock({ target, remote }), target, remote, events };
+    };
+    const first = mountOnce("approval:1");
+    await clickAsync(findButton(first.renderer, "允许一次"));
+    act(() => {
+      first.renderer.unmount();
+    });
+    const second = mountOnce("approval:1");
+    await clickAsync(findButton(second.renderer, "允许一次"));
+    const entries = internals.getLogEntries();
+    equal("a key reset after a restart appends a new entry", entries.length, 2);
+    check("the two runs have distinct log ids", entries[0].id !== entries[1].id);
+    check(
+      "both runs are recorded as panel decisions",
+      entries.every((entry) => entry.outcome === "allowed-once" && entry.via === "panel"),
+    );
   } finally {
     if (originalLocalStorage === undefined) delete globalThis.localStorage;
     else globalThis.localStorage = originalLocalStorage;

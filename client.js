@@ -1213,6 +1213,22 @@ window.__ModuleLoader__.load({
 			// key we are answering (and the store also refuses to downgrade a panel
 			// decision that arrives second).
 			const answeringKey = React.useRef(undefined);
+			// Approval keys (`approval:3`) restart at 1 on every DSH boot, so they are
+			// not unique across runs inside one session log. The persisted log key
+			// therefore gets a per-mount instance suffix: same mount reuses it for
+			// asked→decided, a remount (new run) starts a fresh entry.
+			const logIds = React.useRef(new Map());
+
+			/** Stable log id for one approval instance in this mount. */
+			const logIdOf = React.useCallback((approval) => {
+				const key = approval !== null && typeof approval === "object" && typeof approval.key === "string" ? approval.key : "";
+				if (key === "") return undefined;
+				const existing = logIds.current.get(key);
+				if (existing !== undefined) return existing;
+				const created = key + "#" + requestId();
+				logIds.current.set(key, created);
+				return created;
+			}, []);
 
 			const clearDeliveredTimer = React.useCallback(() => {
 				if (deliveredTimer.current === undefined) return;
@@ -1270,7 +1286,8 @@ window.__ModuleLoader__.load({
 			React.useEffect(() => {
 				if (approval === undefined) return;
 				lastTarget.current = approval;
-				lostKey.current = { key: approval.key, sessionId: approval.sessionId };
+				const logId = logIdOf(approval);
+				lostKey.current = { key: approval.key, sessionId: approval.sessionId, logId };
 				if (seenKey.current === approval.key) return;
 				seenKey.current = approval.key;
 				setDraft(recallDraft(approval.key));
@@ -1285,13 +1302,13 @@ window.__ModuleLoader__.load({
 							? pending.displayReason
 							: undefined;
 				recordLogAsked({
-					id: approval.key,
+					id: logId,
 					sessionId: approval.sessionId,
 					toolName: typeof pending.toolName === "string" ? pending.toolName : "",
 					reason,
 					sessionTitle,
 				});
-			}, [approval, sessionTitle]);
+			}, [approval, logIdOf, sessionTitle]);
 
 			React.useEffect(() => {
 				// The panel answered nothing yet the approval disappeared while its
@@ -1304,13 +1321,13 @@ window.__ModuleLoader__.load({
 				lostKey.current = undefined;
 				if (lost.sessionId !== currentSessionId) return;
 				if (shouldRecordLostApproval(lost.key, answeringKey.current) !== true) return;
-				recordLogDecided(lost.key, { outcome: "unknown", via: "unknown", decidedAt: Date.now() });
+				recordLogDecided(lost.logId, { outcome: "unknown", via: "unknown", decidedAt: Date.now() });
 			}, [approval, currentSessionId]);
 
 			React.useEffect(() => {
 				if (approval === undefined || sessionTitle === undefined) return;
-				recordLogSessionTitle(approval.key, sessionTitle);
-			}, [approval, sessionTitle]);
+				recordLogSessionTitle(logIdOf(approval), sessionTitle);
+			}, [approval, logIdOf, sessionTitle]);
 
 			React.useEffect(() => {
 				// Defensive: switching "allow confirmation" off while the confirm
@@ -1366,7 +1383,7 @@ window.__ModuleLoader__.load({
 							result.delivery !== undefined && result.delivery.mode !== "failed" ? result.delivery.mode : undefined;
 						// Allow side only: a delivered allow-with-note queues one notice.
 						if (outcome === "allowed-once" && deliveryMode !== undefined) pushDelivered(deliveryMode);
-						recordLogDecided(target.key, {
+						recordLogDecided(logIdOf(target), {
 							outcome,
 							via: "panel",
 							note: reason,
@@ -1381,7 +1398,7 @@ window.__ModuleLoader__.load({
 						setBusy(false);
 					}
 				},
-				[approval, busy, draft, pushDelivered, remote, t],
+				[approval, busy, draft, logIdOf, pushDelivered, remote, t],
 			);
 
 			// Confirmation view keyboard rules: Esc cancels (never allows), Enter
